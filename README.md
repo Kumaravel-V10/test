@@ -1,5 +1,5 @@
  # 🧪 QUBE — Unified AI-Powered Quality Engineering Platform
-
+AIzaSyCNnaAcCbWgBuiauioikhBfEzH5PI14T8kSMJk000000000
 > One platform. Every test. Every insight. One release decision.
 > Powered by **GPT-4o + Claude Sonnet 4.6 + Claude Opus 4.6** — each model routed to the task it does best.
 
