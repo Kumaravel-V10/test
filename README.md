@@ -1,1189 +1,1781 @@
- # 🧪 QUBE — Unified AI-Powered Quality Engineering Platform
-> One platform. Every test. Every insight. One release decision.
-> Powered by **GPT-4o + Claude Sonnet 4.6 + Claude Opus 4.6** — each model routed to the task it does best.
+# ✈️ Azure AI Foundry — Complete Setup Guide: Knowledge Bases & Agents
 
-QUBE (Quality Unified Baseline Engine) is a single, fully integrated testing platform that connects to your GitHub codebase, orchestrates Playwright · k6 · ZAP · API testing, and delivers AI-powered analysis via LangGraph agents — intelligently switching between GPT-4o, Claude Sonnet 4.6, and Claude Opus 4.6 based on task type, token load, and reasoning depth required.
+> **Goal**: Create 15 knowledge bases + 15 agents in Azure AI Foundry for the Airline Multi-Agent Orchestrator System  
+> **Platform**: Azure AI Foundry (https://ai.azure.com)
 
 ---
 
 ## Table of Contents
 
-- [Vision](#vision)
-- [Core Capabilities](#core-capabilities)
-- [Architecture Overview](#architecture-overview)
-- [Frontend Architecture](#frontend-architecture)
-- [Backend Architecture](#backend-architecture)
-- [LangGraph AI Agent System](#langgraph-ai-agent-system)
-- [AI Model Strategy — Dual Provider Routing](#ai-model-strategy--dual-provider-routing)
-- [GitHub Integration](#github-integration)
-- [Test Orchestration Engine](#test-orchestration-engine)
-- [Report & Bug System](#report--bug-system)
-- [Data Contracts & Schemas](#data-contracts--schemas)
-- [Configuration Reference](#configuration-reference)
-- [Folder Structure](#folder-structure)
-- [Setup & Installation](#setup--installation)
-- [Roadmap](#roadmap)
+1. [Execution Order — What to Do First](#1-execution-order)
+2. [How to Create a Knowledge Base — Field-by-Field Guide](#2-knowledge-base-creation-guide)
+3. [All 15 Knowledge Bases — Exact Configuration](#3-all-15-knowledge-bases)
+4. [Knowledge Source Documents — Content to Upload](#4-knowledge-source-documents)
+5. [How to Create an Agent — Field-by-Field Guide](#5-agent-creation-guide)
+6. [All 15 Agents — Exact Configuration](#6-all-15-agents)
+7. [Testing Each Agent](#7-testing)
 
 ---
 
-## Vision
+## 1. Execution Order
 
-> Every production release decision is backed by reproducible multi-stage test evidence, AI-generated insight from the right model for each task, human ownership, and a single auditable report — fetched directly from your GitHub repository, run in one command, stored in one place.
+> **IMPORTANT**: Follow this exact order. Knowledge bases must be created BEFORE agents, because agents reference knowledge bases.
 
-QUBE removes the need for:
-- Manual test stitching across Slack, spreadsheets, or CI logs
-- Separate portals for security, performance, and functional test results
-- Picking one AI vendor and being locked in — QUBE routes to the best model per task
+```
+Phase 1: Prepare Knowledge Documents (local files)
+   ↓
+Phase 2: Create Knowledge Bases in Azure AI Foundry (upload documents)
+   ↓
+Phase 3: Deploy a Chat Completions Model (GPT-4o or GPT-4.1)
+   ↓
+Phase 4: Create Agents (link to knowledge bases + add tools)
+   ↓
+Phase 5: Create Supervisor-Orchestrator-Agent (links to all other agents)
+   ↓
+Phase 6: Test each agent individually
+   ↓
+Phase 7: Test end-to-end orchestration flows
+```
+
+### Phase 1 Checklist — Prepare Documents First
+
+Before touching Azure, create these files on your local machine:
+
+- [ ] `airline_policies.md`
+- [ ] `intent_classification_examples.json`
+- [ ] `escalation_matrix.md`
+- [ ] `booking_flow_guide.md`
+- [ ] `fare_families.md`
+- [ ] `passenger_type_codes.md`
+- [ ] `name_change_policy.md`
+- [ ] `refund_policy.md`
+- [ ] `refund_graphql_schemas.md`
+- [ ] `change_booking_rules.md`
+- [ ] `rebooking_policy.md`
+- [ ] `disruption_handling_guide.md`
+- [ ] `ancillary_services_catalogue.md`
+- [ ] `ssr_codes_reference.md`
+- [ ] `medical_clearance_guide.md`
+- [ ] `payment_processing_guide.md`
+- [ ] `case_management_sla.md`
+- [ ] `email_templates.md`
+- [ ] `api_reference.md`
+
+> The content for each of these files is provided in [Section 4](#4-knowledge-source-documents) below.
 
 ---
 
-## Core Capabilities
+## 2. Knowledge Base Creation Guide
 
-| Capability | Description |
-|---|---|
-| **GitHub Sync** | Connect any repo, branch, or commit SHA; auto-pull before each run |
-| **Script Analyzer** | AI reads your test scripts and codebase and suggests improvements |
-| **Multi-Stage Test Runner** | Run Playwright, k6, OWASP ZAP, and API tests in one orchestrated pipeline |
-| **LangGraph AI Agents** | Specialized agents triage failures, recommend fixes, and generate release decisions |
-| **Dual-Model AI Routing** | GPT-4o for structured JSON output; Claude Sonnet 4.6 for deep code + long context; Claude Opus 4.6 for complex multi-step reasoning |
-| **Unified Report** | Single merged JSON + HTML report per run, indexed by run_id |
-| **Bug Tracker** | Auto-generated bug cards from failed tests with AI fix recommendations + diffs |
-| **Blocker Management** | Critical/High findings automatically flagged with owner assignment |
-| **AI Chat Interface** | Ask anything about the test run, codebase, or failure patterns |
-| **Dashboard** | Real-time test progress, trends, quality score, and release gate status |
-| **Configurable Gates** | Define block/warn/observe thresholds per project via UI or YAML |
-| **Model Config UI** | Configure which model handles which agent — per project, overridable |
+### How to Navigate
+
+```
+Azure AI Foundry → Your Project → Knowledge bases (left sidebar) → + Create
+```
+
+### Field-by-Field Explanation
+
+When you click **"Create a new knowledge base"**, Azure shows you these fields:
+
+| # | Field | What It Means | How to Fill It |
+|---|-------|--------------|----------------|
+| 1 | **Name*** | Unique identifier for this knowledge base | Use the naming convention: `kb-{agent-name}` (e.g., `kb-name-change-agent`) |
+| 2 | **Description** | Human-readable summary | Describe what documents are in this KB and which agent uses it |
+| 3 | **Chat completions model** | The LLM model used to reason over retrieved documents | Select your deployed model: **GPT-4o** or **GPT-4.1** (must be deployed first) |
+| 4 | **Retrieval reasoning effort*** | How much reasoning the model applies to retrieved chunks | See table below |
+| 5 | **Output mode*** | How the model formats its answers | See table below |
+| 6 | **Retrieval instructions** | Custom instructions telling the KB how to prioritize/search documents | Natural language instructions for retrieval behavior |
+| 7 | **Knowledge sources*** | The actual documents/files to upload | Upload `.md`, `.json`, `.txt`, `.pdf` files |
+
+### Retrieval Reasoning Effort — When to Use Each
+
+| Level | When to Use | Best For |
+|-------|------------|----------|
+| **Minimal** | Simple factual lookups, exact data retrieval | Booking-Retrieval (just look up PNR data) |
+| **Low** | Straightforward Q&A with minimal interpretation | SSR codes lookup, airport codes |
+| **Medium** | Moderate reasoning needed, some policy interpretation | ✅ **Recommended for most agents** — name change rules, refund policies |
+| **High** | Complex reasoning, multi-document synthesis | Supervisor (intent classification), Disruption handling (EU261 + rebooking logic) |
+
+### Output Mode — When to Use Each
+
+| Mode | When to Use | Best For |
+|------|------------|----------|
+| **Extractive data** | Return exact quotes/data from documents | API reference lookups, policy text extraction |
+| **Grounded generation** | Generate natural language answers grounded in documents | ✅ **Recommended for most agents** — agent responses to customers |
+| **Ungrounded generation** | Free-form generation (not tied to documents) | NOT recommended for airline operations |
 
 ---
 
-## Architecture Overview
+## 3. All 15 Knowledge Bases — Exact Configuration
+
+### KB #1: Supervisor Orchestrator Knowledge Base
 
 ```
-┌──────────────────────────────────────────────────────────────────────────┐
-│                            QUBE PLATFORM                                 │
-│                                                                          │
-│  ┌───────────────┐    ┌──────────────────────────────────────────────┐  │
-│  │   Frontend    │    │               Backend Services                │  │
-│  │  (Next.js 14) │◄──►│                                              │  │
-│  │               │    │  ┌─────────────┐  ┌──────────────────────┐  │  │
-│  │  Dashboard    │    │  │  API GW     │  │  Orchestrator Svc    │  │  │
-│  │  Run Console  │    │  │ (FastAPI)   │  │  (Python / Celery)   │  │  │
-│  │  Bug Tracker  │    │  └─────────────┘  └──────────────────────┘  │  │
-│  │  AI Chat      │    │  ┌─────────────┐  ┌──────────────────────┐  │  │
-│  │  Config UI    │    │  │ GitHub Svc  │  │  LangGraph Agent     │  │  │
-│  │  Model Router │    │  │             │  │  Engine              │  │  │
-│  └───────────────┘    │  └─────────────┘  └──────────────────────┘  │  │
-│                       │  ┌─────────────┐  ┌──────────────────────┐  │  │
-│                       │  │ Report Svc  │  │  AI Model Router     │  │  │
-│                       │  │             │  │  GPT-4o /            │  │  │
-│                       │  └─────────────┘  │  Sonnet 4.6 /        │  │  │
-│                       │                   │  Opus 4.6            │  │  │
-│                       │                   └──────────────────────┘  │  │
-│                       └──────────────────────────────────────────────┘  │
-│                                                                          │
-│  ┌───────────────────────────────────────────────────────────────────┐  │
-│  │                       Test Runner Layer                            │  │
-│  │   Playwright Worker │ k6 Worker │ ZAP Worker │ API Worker         │  │
-│  └───────────────────────────────────────────────────────────────────┘  │
-│                                                                          │
-│  ┌───────────────────────────────────────────────────────────────────┐  │
-│  │                         Data Layer                                 │  │
-│  │  PostgreSQL (runs/bugs/config) │ Redis (queues/cache/sessions)    │  │
-│  │  MinIO / S3 (artifacts/reports)│ GitHub API                       │  │
-│  └───────────────────────────────────────────────────────────────────┘  │
-└──────────────────────────────────────────────────────────────────────────┘
-```
-
----
-
-## Frontend Architecture
-
-**Stack:** Next.js 14 (App Router) · TypeScript · Tailwind CSS · shadcn/ui · Zustand · React Query · Recharts · Xterm.js · Monaco Editor
-
-### Page Structure
-
-```
-app/
-├── (auth)/
-│   └── login/                    # GitHub OAuth login
-├── dashboard/
-│   ├── page.tsx                  # Quality score, recent runs, trend charts
-│   └── [projectId]/
-│       ├── page.tsx              # Project overview + active model config display
-│       ├── runs/
-│       │   ├── page.tsx          # Run history list with gate decision badges
-│       │   ├── new/page.tsx      # Configure & trigger new run
-│       │   └── [runId]/
-│       │       ├── page.tsx      # Live console + stage tabs + model usage panel
-│       │       ├── report/       # Merged HTML/JSON report viewer
-│       │       ├── bugs/         # Auto-generated bug cards for this run
-│       │       └── ai/           # AI insights + chat (shows which model answered)
-│       ├── bugs/
-│       │   └── page.tsx          # All bugs across runs, filter/sort/assign
-│       ├── config/
-│       │   ├── page.tsx          # Gate thresholds, env vars, integrations
-│       │   └── models/page.tsx   # ← Per-agent model selector UI
-│       └── scripts/
-│           └── page.tsx          # Script analyzer: repo path or upload
-└── settings/
-    └── page.tsx                  # GitHub token, org config, notification rules
-```
-
-### Key UI Modules
-
-#### 1. Run Console (`/runs/[runId]`)
-- Live log streaming via WebSocket (Xterm.js terminal component)
-- Stage progress bar: `GitHub Sync → Script Analysis → Playwright → k6 → ZAP → API → AI Report`
-- Per-stage status badge: Running / Passed / Failed / Blocked / Skipped
-- **Model activity ticker** — real-time display of which AI model is active:
-  ```
-  🤖 Claude Sonnet 4.6  — analyzing 14 Playwright failures...
-  🤖 Claude Opus 4.6    — generating release gate decision...
-  🤖 GPT-4o             — processing k6 performance baseline...
-  ```
-- Live gate decision panel (block/warn/observe) updating in real time
-
-#### 2. Unified Report Viewer
-- Tabs: Summary · Functional · Performance · Security · AI Analysis · Model Usage
-- Each AI-generated insight carries a source model badge: `[Claude Sonnet 4.6]` / `[GPT-4o]` / `[Claude Opus 4.6]`
-- Filterable test result table with severity, status, and AI explanation column
-- One-click "Create Bug" from any failed test row
-- Export as PDF or share link
-
-#### 3. Bug Tracker
-- Kanban view: Open → In Progress → Fixed → Verified
-- Each bug card shows: failing test name, stage, severity, AI fix recommendation, inline diff (Monaco), source model, linked commit
-- Filter by: stage, severity, assignee, run_id, date range
-- GitHub Issue sync: push bug to repo issues with one click
-- One-click "Apply Fix" → commits Claude Sonnet 4.6 generated diff to a new branch
-
-#### 4. AI Chat Panel
-- Context-aware: loaded with current run artifacts + codebase summary
-- **Model selector in chat header** — switch between GPT-4o, Claude Sonnet 4.6, Claude Opus 4.6 mid-conversation
-- Default routes to the model configured for the Chat Agent per project
-- Shows token usage and estimated cost per message
-- Persistent conversation per run, exportable
-
-#### 5. Script Analyzer
-- Point to GitHub repo path or upload scripts
-- AI reviews: test coverage gaps, dead selectors, missing assertions, poor data isolation
-- Output: annotated diff view (Monaco Editor) with suggested improvements
-- One-click accept → commits fix to branch via GitHub API
-- Entire codebase sent in one call via Claude Sonnet 4.6's 1M token context window
-
-#### 6. Model Config UI (`/config/models`)
-- Per-agent model selector dropdown: `GPT-4o` · `Claude Sonnet 4.6` · `Claude Opus 4.6` · `Claude Haiku 4.5` · `Auto`
-- Extended thinking toggle per agent (Sonnet 4.6 / Opus 4.6 only)
-- Effort level selector: low / medium / high / max (Opus 4.6 only)
-- Shows: estimated token cost per run, context window used, recommended model for each agent
-- Live "test prompt" panel — send a sample payload and see the response with latency + cost
-- Saved per project, version-controlled in `qube.config.yaml`
-
-#### 7. Dashboard
-- Project-level quality score (weighted: functional 40%, security 35%, performance 25%)
-- Run trend chart: pass rate over last 30 runs
-- **Model usage cost breakdown** per run: total cost, cost per agent, which model was used
-- Blocker heatmap: which stage produces the most blockers over time
-
----
-
-## Backend Architecture
-
-**Stack:** Python 3.12 · FastAPI · Celery · Redis · PostgreSQL · LangGraph · Anthropic SDK · OpenAI SDK · Docker
-
-### Services
-
-#### API Gateway (`api-gateway/`)
-- FastAPI application, single entry point for all frontend calls
-- JWT + GitHub OAuth session management
-- Routes requests to internal services via HTTP or task queue
-- WebSocket endpoint for live log streaming per run_id
-- Model usage logging endpoint (records model, tokens, cost per agent call)
-
-#### AI Model Router (`ai-model-router/`) ← Central to the dual-model design
-- The single service all agents call — agents never call providers directly
-- Accepts: `{ agent: str, payload: dict, project_id: str }`
-- Looks up model config for that agent + project from DB
-- Routes to correct provider SDK (Anthropic or OpenAI)
-- Normalizes response so agents are fully provider-agnostic
-- Records usage: model, input_tokens, output_tokens, latency_ms, cost_usd
-- Fallback: if primary model fails or rate-limits, routes to configured fallback and flags in report
-
-```python
-# ai-model-router/router.py
-
-class ModelRouter:
-    async def call(self, agent: str, messages: list, project_id: str) -> RouterResponse:
-        config = await self.get_model_config(agent, project_id)
-        
-        try:
-            if config.provider == "anthropic":
-                return await self.call_anthropic(config, messages)
-            elif config.provider == "openai":
-                return await self.call_openai(config, messages)
-        except (RateLimitError, APIError):
-            # Fallback to secondary model
-            fallback = await self.get_fallback_config(config)
-            result = await self.dispatch(fallback, messages)
-            result.fallback_used = True
-            return result
-
-    async def call_anthropic(self, config: ModelConfig, messages: list) -> RouterResponse:
-        client = anthropic.AsyncAnthropic(api_key=settings.ANTHROPIC_API_KEY)
-        response = await client.messages.create(
-            model=config.model_id,           # claude-sonnet-4-6 or claude-opus-4-6
-            max_tokens=config.max_tokens,
-            thinking={"type": "adaptive"} if config.extended_thinking else None,
-            system=config.system_prompt,
-            messages=messages,
-        )
-        return RouterResponse(
-            text=response.content[0].text,
-            model_id=config.model_id,
-            provider="anthropic",
-            input_tokens=response.usage.input_tokens,
-            output_tokens=response.usage.output_tokens,
-        )
-
-    async def call_openai(self, config: ModelConfig, messages: list) -> RouterResponse:
-        client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
-        response = await client.chat.completions.create(
-            model=config.model_id,           # gpt-4o
-            response_format={"type": "json_object"} if config.json_mode else None,
-            messages=messages,
-        )
-        return RouterResponse(
-            text=response.choices[0].message.content,
-            model_id=config.model_id,
-            provider="openai",
-            input_tokens=response.usage.prompt_tokens,
-            output_tokens=response.usage.completion_tokens,
-        )
-```
-
-#### Orchestrator Service (`orchestrator/`)
-- Celery-based task queue backed by Redis
-- Manages the full run pipeline as a DAG
-- Each stage emits normalized `stage_result.json`
-- Handles retries, timeouts, partial failures, stale revision detection
-
-#### GitHub Service (`github-svc/`)
-- Clone / fetch / pull target repo at specified branch + commit SHA
-- Read file tree for script discovery
-- Push bug reports as GitHub Issues
-- Post run summary as commit status check
-- Webhook listener: trigger run on push or PR event
-- Commit AI-generated fix diffs to a new branch
-
-#### Test Workers (Docker containers, isolated per stage)
-
-| Worker | Tool | Output |
-|---|---|---|
-| `playwright-worker` | Playwright (Node) | `playwright_result.json`, screenshots, traces |
-| `k6-worker` | k6 (Go) | `k6_result.json`, thresholds, percentiles |
-| `zap-worker` | OWASP ZAP (Java) | `zap_result.json`, risk-ranked alerts |
-| `api-worker` | Supertest / Newman | `api_result.json`, schema violations |
-
-All workers output to shared artifact volume: `artifacts/{run_id}/{stage}/`
-
----
-
-## LangGraph AI Agent System
-
-QUBE uses a **LangGraph StateGraph** to orchestrate specialized AI agents. Each agent is model-agnostic — it sends work to the AI Model Router which selects the right model based on project config.
-
-### Agent Graph
-
-```
-                      ┌───────────────────────┐
-                      │    Supervisor Agent    │
-                      │   Routes & Coordinates │
-                      │   Model: GPT-4o        │
-                      └──────────┬─────────────┘
-                                 │
-          ┌──────────────────────┼───────────────────────────┐
-          ▼                      ▼                            ▼
-┌──────────────────┐  ┌────────────────────┐  ┌──────────────────────────┐
-│  Functional      │  │  Performance       │  │  Security Risk Agent     │
-│  Triage Agent    │  │  Analyst Agent     │  │                          │
-│                  │  │                    │  │  Model: Claude Sonnet    │
-│  Model: Claude   │  │  Model: GPT-4o    │  │  4.6 + Adaptive Thinking │
-│  Sonnet 4.6      │  │                    │  │                          │
-│                  │  │  - k6 JSON parse   │  │  - ZAP alert parsing     │
-│  - Deep code     │  │  - Regression vs   │  │  - CVE classification    │
-│    path analysis │  │    baseline        │  │  - Exception policy      │
-│  - Root cause    │  │  - Bottleneck map  │  │  - Patch guidance        │
-│  - Fix diff      │  │  - Threshold eval  │  │  - Risk scoring          │
-└────────┬─────────┘  └─────────┬──────────┘  └───────────┬──────────────┘
-         └────────────────────┬─┘─────────────────────────┘
-                              ▼
-                  ┌─────────────────────────┐
-                  │   Script Analyzer Agent  │
-                  │                         │
-                  │   Model: Claude Sonnet   │
-                  │   4.6 (1M token ctx)    │
-                  │                         │
-                  │   - Full repo ingest     │
-                  │   - Coverage gap map     │
-                  │   - Fragile selector     │
-                  │     detection            │
-                  │   - New test case        │
-                  │     suggestions          │
-                  └──────────┬──────────────┘
-                             ▼
-                  ┌─────────────────────────┐
-                  │  Release Decision Agent  │
-                  │                         │
-                  │  Model: Claude Opus 4.6  │
-                  │  Adaptive Thinking ON   │
-                  │  Effort: high / max     │
-                  │                         │
-                  │  - Aggregates all agent  │
-                  │    outputs               │
-                  │  - Multi-factor gate     │
-                  │    policy reasoning      │
-                  │  - Exception evaluation  │
-                  │  - PASS / BLOCK / WARN   │
-                  │    + full justification  │
-                  └──────────┬──────────────┘
-                             ▼
-              ┌──────────────────────────────┐
-              │  Bug Fix Agent               │
-              │                              │
-              │  Model: Claude Sonnet 4.6    │
-              │                              │
-              │  - Generates code fix diffs  │
-              │  - Per blocking finding      │
-              │  - Produces patch + test     │
-              │    case update suggestion    │
-              └──────────┬───────────────────┘
-                         ▼
-              ┌──────────────────────────────┐
-              │  Chat Agent (On demand)       │
-              │                              │
-              │  Model: User-selected        │
-              │  Default: Claude Sonnet 4.6  │
-              │                              │
-              │  - Full run context loaded   │
-              │  - Codebase-aware            │
-              │  - Streaming output          │
-              │  - Persistent per run        │
-              └──────────────────────────────┘
-```
-
-### LangGraph State Schema
-
-```python
-from typing import TypedDict
-from langgraph.graph import StateGraph
-
-class ModelAttribution(TypedDict):
-    agent: str
-    model_id: str
-    provider: str           # "anthropic" | "openai"
-    input_tokens: int
-    output_tokens: int
-    cost_usd: float
-    latency_ms: int
-    thinking_used: bool
-    fallback_used: bool
-
-class QUBERunState(TypedDict):
-    run_id: str
-    repo: dict                          # branch, sha, file tree
-    merged_summary: dict                # all stage results
-    functional_findings: list           # Playwright triage agent output
-    performance_findings: list          # k6 analyst agent output
-    security_findings: list             # ZAP risk agent output
-    script_analysis: dict               # Script analyzer agent output
-    fix_diffs: list                     # Bug Fix agent output
-    gate_policy: dict                   # configured thresholds
-    blockers: list                      # HIGH+ findings
-    release_decision: str               # PASS | BLOCK | WARN
-    release_justification: str          # Opus 4.6 reasoning narrative
-    ai_insights_markdown: str           # human-readable summary
-    model_attributions: list[ModelAttribution]  # full audit trail
-    chat_history: list                  # Chat Agent session
+┌─────────────────────────────────────────────────────────┐
+│  CREATE KNOWLEDGE BASE                                   │
+├─────────────────────────────────────────────────────────┤
+│  Name*:           kb-supervisor-orchestrator              │
+│                                                          │
+│  Description:     Master knowledge base for the          │
+│                   Supervisor-Orchestrator-Agent.          │
+│                   Contains airline policies, intent       │
+│                   classification examples, and            │
+│                   escalation rules for routing            │
+│                   customer requests to specialized        │
+│                   agents.                                 │
+│                                                          │
+│  Chat completions                                        │
+│  model:           gpt-4o (select your deployed model)    │
+│                                                          │
+│  Retrieval                                               │
+│  reasoning        High                                   │
+│  effort*:         (needs complex intent classification)  │
+│                                                          │
+│  Output mode*:    Grounded generation                    │
+│                                                          │
+│  Retrieval        "You are the routing brain of an       │
+│  instructions:    airline service center. When a         │
+│                   customer request arrives, search        │
+│                   'intent_classification_examples.json'   │
+│                   FIRST to match the intent. Then check  │
+│                   'airline_policies.md' for any policy    │
+│                   constraints. Check                     │
+│                   'escalation_matrix.md' to determine    │
+│                   if human escalation is needed."         │
+│                                                          │
+│  Knowledge        📄 airline_policies.md                 │
+│  sources*:        📄 intent_classification_examples.json │
+│                   📄 escalation_matrix.md                │
+│                   📄 api_reference.md                    │
+└─────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## AI Model Strategy — Dual Provider Routing
-
-QUBE intelligently routes each agent's work to the model best suited for it. All assignments are the project-level default and are fully overridable.
-
-### Default Model Assignments
-
-| Agent | Default Model | Provider | Reasoning |
-|---|---|---|---|
-| **Supervisor** | `gpt-4o` | OpenAI | Fast routing decisions; structured JSON; low latency |
-| **Functional Triage** | `claude-sonnet-4-6` | Anthropic | Deep TypeScript/JS reasoning; 1M token context for large Playwright output; best code understanding |
-| **Performance Analyst** | `gpt-4o` | OpenAI | Quantitative data analysis; k6 JSON is compact and structured; reliable `json_object` output |
-| **Security Risk** | `claude-sonnet-4-6` + Adaptive Thinking | Anthropic | CVE classification + exception policy reasoning; adaptive thinking for nuanced risk evaluation |
-| **Script Analyzer** | `claude-sonnet-4-6` | Anthropic | 1M token context ingests entire codebase in one call; leading code quality analysis |
-| **Release Decision** | `claude-opus-4-6` + Adaptive Thinking | Anthropic | Most critical reasoning task; Opus 4.6 for complex multi-factor gate logic with full justification |
-| **Bug Fix** | `claude-sonnet-4-6` | Anthropic | Code generation and patch production; produces actual diffs |
-| **Chat Agent** | `claude-sonnet-4-6` (user-switchable) | Anthropic | Long-context conversational reasoning; user can switch to GPT-4o or Opus 4.6 in the UI |
-
-### Why This Split Makes Sense
-
-**Claude Sonnet 4.6** (`claude-sonnet-4-6`) is the default for code-heavy agents because it provides a 1M token context window with adaptive thinking, making it capable of ingesting an entire test suite output alongside a large codebase in a single call. It is state-of-the-art for real-world software coding tasks and excels at long-horizon, autonomous work — exactly what deep test failure analysis requires.
-
-**Claude Opus 4.6** (`claude-opus-4-6`) handles the Release Decision Agent exclusively. This is the most consequential output in the entire pipeline — a gate decision with multi-factor logic, exception handling, and a full written justification. Opus 4.6 supports 128k output tokens, adaptive thinking with a `max` effort level, and delivers the deepest reasoning available.
-
-**GPT-4o** handles agents where the primary requirement is structured, predictable JSON output against compact data — the Supervisor's routing call and the Performance Analyst's quantitative baseline comparison. Both are tasks where GPT-4o's consistent `json_object` mode is the most pragmatic choice.
-
-### Model Capability Comparison for QUBE Tasks
-
-| Capability | GPT-4o | Claude Sonnet 4.6 | Claude Opus 4.6 | Claude Haiku 4.5 |
-|---|---|---|---|---|
-| Context window | 128k | **1M** | **1M** | 200k |
-| Max output tokens | 16k | 64k | **128k** | 8k |
-| JSON structured output | ✅ Excellent | ✅ Good | ✅ Good | ✅ Good |
-| Code understanding | ✅ Strong | ✅ **Best-in-class** | ✅ Excellent | ⚠️ Basic |
-| Adaptive thinking | ❌ | ✅ (effort: low–high) | ✅ **(effort: low–max)** | ❌ |
-| Full repo ingest (no chunking) | ❌ Chunking required | ✅ Native 1M | ✅ Native 1M | ⚠️ Limited |
-| Complex multi-step reasoning | ✅ Strong | ✅ Strong | ✅ **Frontier** | ⚠️ Basic |
-| Streaming chat | ✅ | ✅ | ✅ | ✅ |
-| Cost (relative) | Mid | Mid | High | **Lowest** |
-
-### Auto Routing Mode
-
-When an agent is set to `model: auto`, the Model Router applies these rules:
-
-```python
-AUTO_ROUTING_RULES = {
-    "supervisor":             lambda ctx: "gpt-4o",
-    "functional_triage":      lambda ctx: "claude-sonnet-4-6",
-    "performance_analyst":    lambda ctx: "gpt-4o",
-    "security_risk":          lambda ctx: "claude-sonnet-4-6",
-    "script_analyzer":        lambda ctx: "claude-sonnet-4-6",
-    "release_decision":       lambda ctx: (
-        "claude-opus-4-6"      # Opus when blockers or exceptions are present
-        if ctx["blocker_count"] > 0 or ctx["exception_count"] > 0
-        else "claude-sonnet-4-6"  # Sonnet sufficient for clean runs
-    ),
-    "bug_fix":                lambda ctx: "claude-sonnet-4-6",
-    "chat":                   lambda ctx: "claude-sonnet-4-6",  # user overrides in UI
-}
-```
-
-### Fallback Chain
+### KB #2: Create Booking Knowledge Base
 
 ```
-Primary model fails or rate-limits
-         │
-         ▼
-Retry with exponential backoff (3 attempts, 2s / 4s / 8s)
-         │
-         ▼
-Route to configured fallback model
-(default: claude-sonnet-4-6 ↔ gpt-4o swap)
-         │
-         ▼
-Mark insight with [FALLBACK MODEL USED] badge in report
-         │
-         ▼
-Log to model_usage_log table for review
-```
-
-### SDK Setup
-
-```python
-# requirements.txt
-anthropic>=0.40.0
-openai>=1.50.0
-langgraph>=0.2.0
-
-# Anthropic SDK — Sonnet 4.6 and Opus 4.6
-import anthropic
-
-client = anthropic.AsyncAnthropic(api_key=settings.ANTHROPIC_API_KEY)
-
-response = await client.messages.create(
-    model="claude-sonnet-4-6",   # or "claude-opus-4-6"
-    max_tokens=8192,
-    thinking={"type": "adaptive"},   # Sonnet 4.6 + Opus 4.6 feature
-    system=system_prompt,
-    messages=[{"role": "user", "content": payload}],
-)
-
-# OpenAI SDK — GPT-4o
-from openai import AsyncOpenAI
-
-client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
-
-response = await client.chat.completions.create(
-    model="gpt-4o",
-    response_format={"type": "json_object"},
-    messages=[
-        {"role": "system", "content": system_prompt},
-        {"role": "user", "content": payload},
-    ],
-)
+┌─────────────────────────────────────────────────────────┐
+│  Name*:           kb-create-booking                      │
+│                                                          │
+│  Description:     Knowledge base for the Create-Booking  │
+│                   -Agent. Contains the complete           │
+│                   Amadeus-Nevio 10-step booking flow,     │
+│                   fare families, passenger types, and     │
+│                   cabin class information.                │
+│                                                          │
+│  Chat completions                                        │
+│  model:           gpt-4o                                 │
+│                                                          │
+│  Retrieval                                               │
+│  reasoning        Medium                                 │
+│  effort*:                                                │
+│                                                          │
+│  Output mode*:    Grounded generation                    │
+│                                                          │
+│  Retrieval        "Follow the booking_flow_guide.md      │
+│  instructions:    step-by-step when executing a new      │
+│                   booking. Reference fare_families.md     │
+│                   for fare rules and                     │
+│                   passenger_type_codes.md for             │
+│                   passenger validation. Always follow     │
+│                   the exact API sequence: search →        │
+│                   create cart → add travelers →           │
+│                   contacts → services → seats →           │
+│                   checkout."                              │
+│                                                          │
+│  Knowledge        📄 booking_flow_guide.md               │
+│  sources*:        📄 fare_families.md                    │
+│                   📄 passenger_type_codes.md             │
+│                   📄 api_reference.md                    │
+└─────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## GitHub Integration
-
-### Connection Flow
+### KB #3: Booking Retrieval Knowledge Base
 
 ```
-User enters GitHub PAT or installs GitHub App
-          │
-          ▼
-QUBE stores token encrypted (never in DB plaintext or logs)
-          │
-          ▼
-User selects org → repo → branch
-          │
-          ▼
-QUBE lists branches and recent commits via GitHub API
-          │
-          ▼
-Run triggered (manual / scheduled / webhook)
-          │
-          ▼
-Orchestrator → GitHub Service:
-  1. git fetch origin <branch>
-  2. git checkout <commit_sha>
-  3. Record branch, sha, actor, timestamp in run metadata
-          │
-          ▼
-After completion:
-  - Post commit status ✅ PASS / ❌ BLOCK / ⚠️ WARN
-  - Open GitHub Issues for each blocker bug
-  - Post PR comment with summary table + AI insight excerpt
-  - Commit AI-generated fix diffs to a new branch (optional)
+┌─────────────────────────────────────────────────────────┐
+│  Name*:           kb-booking-retrieval                   │
+│                                                          │
+│  Description:     Knowledge base for the Booking-        │
+│                   Retrieval-Agent. Contains PNR format    │
+│                   rules and order status codes.           │
+│                                                          │
+│  Chat completions                                        │
+│  model:           gpt-4o                                 │
+│                                                          │
+│  Retrieval                                               │
+│  reasoning        Minimal                                │
+│  effort*:         (simple lookups, no complex reasoning) │
+│                                                          │
+│  Output mode*:    Extractive data                        │
+│                                                          │
+│  Retrieval        "Use api_reference.md to find the      │
+│  instructions:    correct endpoint for retrieving        │
+│                   orders. Validate PNR format (6          │
+│                   alphanumeric characters) before         │
+│                   making API calls."                      │
+│                                                          │
+│  Knowledge        📄 api_reference.md                    │
+│  sources*:        📄 airline_policies.md                 │
+└─────────────────────────────────────────────────────────┘
 ```
-
-### Webhook Trigger
-
-```
-POST /api/webhooks/github/{project_id}
-```
-
-Register in: GitHub repo → Settings → Webhooks. QUBE auto-triggers on:
-- `push` to protected branch
-- `pull_request` opened or synchronized
 
 ---
 
-## Test Orchestration Engine
-
-### Pipeline DAG
+### KB #4: Name Change Knowledge Base
 
 ```
-[1] sync_github
-      │  Fetch repo at target sha. Abort on conflict.
-      ▼
-[2] analyze_scripts          ← Claude Sonnet 4.6 (1M ctx, full repo in one call)
-      │  (runs in parallel with stage 3)
-      ▼
-[3] run_playwright
-      │  Execute all *.spec.ts against target env
-      ▼
-[4] run_k6                   (parallel with [5])
-      │  Load test with configured VUs and thresholds
-      ▼
-[5] run_zap
-      │  OWASP ZAP active scan against test environment URL
-      ▼
-[6] run_api_tests
-      │  Newman / Supertest API contract tests
-      ▼
-[7] merge_report
-      │  Combine all stage_result.json → merged_summary.json
-      ▼
-[8] run_ai_agents            ← LangGraph multi-agent graph
-      │  Functional:         Claude Sonnet 4.6
-      │  Performance:        GPT-4o
-      │  Security:           Claude Sonnet 4.6 + Adaptive Thinking
-      │  Script Analyzer:    Claude Sonnet 4.6
-      │  Release Decision:   Claude Opus 4.6 + Adaptive Thinking (effort: high)
-      │  Bug Fix:            Claude Sonnet 4.6
-      ▼
-[9] finalize_gate
-      │  gate_decision.json + post GitHub commit status
-      ▼
-[10] notify
-       Slack / email based on notification rules
+┌─────────────────────────────────────────────────────────┐
+│  Name*:           kb-name-change                         │
+│                                                          │
+│  Description:     Knowledge base for the Name-Change-    │
+│                   Agent. Contains name change policies,   │
+│                   fee structures, identity verification   │
+│                   requirements, and allowed vs            │
+│                   disallowed changes.                     │
+│                                                          │
+│  Chat completions                                        │
+│  model:           gpt-4o                                 │
+│                                                          │
+│  Retrieval                                               │
+│  reasoning        Medium                                 │
+│  effort*:         (policy interpretation needed)         │
+│                                                          │
+│  Output mode*:    Grounded generation                    │
+│                                                          │
+│  Retrieval        "ALWAYS check name_change_policy.md    │
+│  instructions:    FIRST to determine if a name change    │
+│                   is allowed. Classify the change as      │
+│                   'minor correction' or 'full name        │
+│                   change' based on the rules. Check       │
+│                   departure time constraints before       │
+│                   proceeding. Reference api_reference.md  │
+│                   for the correct API endpoint."          │
+│                                                          │
+│  Knowledge        📄 name_change_policy.md               │
+│  sources*:        📄 api_reference.md                    │
+│                   📄 airline_policies.md                 │
+└─────────────────────────────────────────────────────────┘
 ```
 
-### Normalized Stage Result Contract
+---
 
-```json
-{
-  "stage": "playwright",
-  "run_id": "run_20240410_abc123",
-  "started_at": "2024-04-10T09:00:00Z",
-  "completed_at": "2024-04-10T09:05:32Z",
-  "status": "failed",
-  "summary": {
-    "total": 120,
-    "passed": 115,
-    "failed": 5,
-    "skipped": 0
-  },
-  "gate_impact": "block",
-  "findings": [
-    {
-      "id": "f_001",
-      "title": "Login flow fails on empty password",
-      "severity": "critical",
-      "file": "tests/auth/login.spec.ts",
-      "line": 42,
-      "error_message": "Expected 'dashboard' URL, got '/'",
-      "screenshot": "artifacts/run_20240410_abc123/playwright/login_fail.png"
+### KB #5: Change Booking Knowledge Base
+
+```
+┌─────────────────────────────────────────────────────────┐
+│  Name*:           kb-change-booking                      │
+│                                                          │
+│  Description:     Knowledge base for the Change-Booking  │
+│                   -Agent. Contains change fee rules,      │
+│                   fare difference calculations, and       │
+│                   same-day change policies.               │
+│                                                          │
+│  Chat completions model:  gpt-4o                         │
+│  Retrieval reasoning effort*:  Medium                    │
+│  Output mode*:  Grounded generation                      │
+│                                                          │
+│  Retrieval        "Check change_booking_rules.md for     │
+│  instructions:    change fees and fare difference         │
+│                   policies before processing any          │
+│                   modifications. Reference                │
+│                   fare_families.md for fare family        │
+│                   restrictions."                          │
+│                                                          │
+│  Knowledge        📄 change_booking_rules.md             │
+│  sources*:        📄 fare_families.md                    │
+│                   📄 api_reference.md                    │
+└─────────────────────────────────────────────────────────┘
+```
+
+---
+
+### KB #6: Refund Agent Knowledge Base
+
+```
+┌─────────────────────────────────────────────────────────┐
+│  Name*:           kb-refund-agent                        │
+│                                                          │
+│  Description:     Knowledge base for the RefundAgent.    │
+│                   Contains refund eligibility rules,      │
+│                   EU261 regulations, 24-hour rule, and    │
+│                   GraphQL query/mutation schemas for      │
+│                   the cancelAndRefund API.                │
+│                                                          │
+│  Chat completions model:  gpt-4o                         │
+│  Retrieval reasoning effort*:  High                      │
+│  Output mode*:  Grounded generation                      │
+│                                                          │
+│  Retrieval        "ALWAYS check refund_policy.md first   │
+│  instructions:    to determine eligibility rules. Use    │
+│                   refund_graphql_schemas.md for the       │
+│                   exact GraphQL query structure.          │
+│                   Calculate penalties based on fare       │
+│                   type and time-to-departure."            │
+│                                                          │
+│  Knowledge        📄 refund_policy.md                    │
+│  sources*:        📄 refund_graphql_schemas.md           │
+│                   📄 api_reference.md                    │
+│                   📄 airline_policies.md                 │
+└─────────────────────────────────────────────────────────┘
+```
+
+---
+
+### KB #7: Refund Workflow Knowledge Base
+
+```
+┌─────────────────────────────────────────────────────────┐
+│  Name*:           kb-refund-workflow                     │
+│                                                          │
+│  Description:     Knowledge base for the Refund-workflow │
+│                   Agent. Contains the cancellation and    │
+│                   refund execution process, GraphQL       │
+│                   mutation schemas, and payment           │
+│                   reversal procedures.                    │
+│                                                          │
+│  Chat completions model:  gpt-4o                         │
+│  Retrieval reasoning effort*:  Medium                    │
+│  Output mode*:  Grounded generation                      │
+│                                                          │
+│  Retrieval        "Use refund_graphql_schemas.md for     │
+│  instructions:    the CancellationAndRefund mutation.     │
+│                   Always include refundProposalIds from   │
+│                   the eligibility check response."        │
+│                                                          │
+│  Knowledge        📄 refund_graphql_schemas.md           │
+│  sources*:        📄 refund_policy.md                    │
+│                   📄 api_reference.md                    │
+└─────────────────────────────────────────────────────────┘
+```
+
+---
+
+### KB #8: Rebooking Knowledge Base
+
+```
+┌─────────────────────────────────────────────────────────┐
+│  Name*:           kb-rebooking                           │
+│                                                          │
+│  Description:     Knowledge base for the Rebooking-Agent │
+│                   . Covers voluntary rebooking policies,  │
+│                   standby rules, and fare difference      │
+│                   handling.                               │
+│                                                          │
+│  Chat completions model:  gpt-4o                         │
+│  Retrieval reasoning effort*:  Medium                    │
+│  Output mode*:  Grounded generation                      │
+│                                                          │
+│  Retrieval        "Check rebooking_policy.md for         │
+│  instructions:    voluntary rebooking rules. Calculate   │
+│                   fare differences before confirming."    │
+│                                                          │
+│  Knowledge        📄 rebooking_policy.md                 │
+│  sources*:        📄 fare_families.md                    │
+│                   📄 api_reference.md                    │
+└─────────────────────────────────────────────────────────┘
+```
+
+---
+
+### KB #9: Disruption Rebooking Knowledge Base
+
+```
+┌─────────────────────────────────────────────────────────┐
+│  Name*:           kb-disruption-rebooking                │
+│                                                          │
+│  Description:     Knowledge base for the Disruption-     │
+│                   Rebooking-Agent. Contains IROP          │
+│                   handling procedures, EU261              │
+│                   compensation rules, and auto-rebook     │
+│                   logic.                                  │
+│                                                          │
+│  Chat completions model:  gpt-4o                         │
+│  Retrieval reasoning effort*:  High                      │
+│  Output mode*:  Grounded generation                      │
+│                                                          │
+│  Retrieval        "Prioritize disruption_handling_guide   │
+│  instructions:    .md for IROP procedures. Apply EU261   │
+│                   compensation rules based on distance    │
+│                   and delay duration. Always waive fees   │
+│                   for airline-caused disruptions."        │
+│                                                          │
+│  Knowledge        📄 disruption_handling_guide.md        │
+│  sources*:        📄 rebooking_policy.md                 │
+│                   📄 airline_policies.md                 │
+│                   📄 api_reference.md                    │
+└─────────────────────────────────────────────────────────┘
+```
+
+---
+
+### KB #10: Ancillary Sales Knowledge Base
+
+```
+┌─────────────────────────────────────────────────────────┐
+│  Name*:           kb-ancillary-sales                     │
+│                                                          │
+│  Description:     Knowledge base for the Ancillary-Sales │
+│                   -Agent. Contains the full service       │
+│                   catalogue, seat types, pricing, and     │
+│                   promotion codes.                        │
+│                                                          │
+│  Chat completions model:  gpt-4o                         │
+│  Retrieval reasoning effort*:  Low                       │
+│  Output mode*:  Extractive data                          │
+│                                                          │
+│  Retrieval        "Search ancillary_services_catalogue   │
+│  instructions:    .md for available services and          │
+│                   pricing. Use promotion code SCUISEATP   │
+│                   for seat promotions. Reference          │
+│                   api_reference.md for service and        │
+│                   seat API endpoints."                    │
+│                                                          │
+│  Knowledge        📄 ancillary_services_catalogue.md     │
+│  sources*:        📄 api_reference.md                    │
+└─────────────────────────────────────────────────────────┘
+```
+
+---
+
+### KB #11: Passenger SSR Knowledge Base
+
+```
+┌─────────────────────────────────────────────────────────┐
+│  Name*:           kb-passenger-ssr                        │
+│                                                          │
+│  Description:     Knowledge base for the Passenger-SSR-  │
+│                   Agent. Contains IATA SSR codes,         │
+│                   special meal codes, wheelchair types,   │
+│                   and unaccompanied minor rules.          │
+│                                                          │
+│  Chat completions model:  gpt-4o                         │
+│  Retrieval reasoning effort*:  Low                       │
+│  Output mode*:  Extractive data                          │
+│                                                          │
+│  Retrieval        "Look up SSR codes in                  │
+│  instructions:    ssr_codes_reference.md. Match           │
+│                   customer requests to the correct IATA   │
+│                   code. Check age rules for UMNR          │
+│                   (unaccompanied minors)."                │
+│                                                          │
+│  Knowledge        📄 ssr_codes_reference.md              │
+│  sources*:        📄 airline_policies.md                 │
+│                   📄 api_reference.md                    │
+└─────────────────────────────────────────────────────────┘
+```
+
+---
+
+### KB #12: Medical Exception Knowledge Base
+
+```
+┌─────────────────────────────────────────────────────────┐
+│  Name*:           kb-medical-exception                   │
+│                                                          │
+│  Description:     Knowledge base for the Medical-        │
+│                   Exception-Agent. Contains MEDIF form    │
+│                   requirements, fit-to-fly rules, and     │
+│                   medical equipment approval policies.    │
+│                                                          │
+│  Chat completions model:  gpt-4o                         │
+│  Retrieval reasoning effort*:  Medium                    │
+│  Output mode*:  Grounded generation                      │
+│                                                          │
+│  Retrieval        "Reference medical_clearance_guide.md  │
+│  instructions:    for all medical clearance decisions.    │
+│                   Check if a MEDIF form is required       │
+│                   based on the medical condition."        │
+│                                                          │
+│  Knowledge        📄 medical_clearance_guide.md          │
+│  sources*:        📄 airline_policies.md                 │
+└─────────────────────────────────────────────────────────┘
+```
+
+---
+
+### KB #13: Payment Knowledge Base
+
+```
+┌─────────────────────────────────────────────────────────┐
+│  Name*:           kb-payment                             │
+│                                                          │
+│  Description:     Knowledge base for the Payment-Agent.  │
+│                   Contains supported payment methods,     │
+│                   currency rules, and payment processing  │
+│                   procedures.                             │
+│                                                          │
+│  Chat completions model:  gpt-4o                         │
+│  Retrieval reasoning effort*:  Low                       │
+│  Output mode*:  Extractive data                          │
+│                                                          │
+│  Retrieval        "Reference payment_processing_guide    │
+│  instructions:    .md for supported payment methods and  │
+│                   processing rules."                     │
+│                                                          │
+│  Knowledge        📄 payment_processing_guide.md        │
+│  sources*:        📄 api_reference.md                   │
+└─────────────────────────────────────────────────────────┘
+```
+
+---
+
+### KB #14: Case Management Knowledge Base
+
+```
+┌─────────────────────────────────────────────────────────┐
+│  Name*:           kb-case-management                     │
+│                                                          │
+│  Description:     Knowledge base for the Case-Management │
+│                   -Agent. Contains case priority matrix,  │
+│                   SLA timelines, and escalation paths.    │
+│                                                          │
+│  Chat completions model:  gpt-4o                         │
+│  Retrieval reasoning effort*:  Medium                    │
+│  Output mode*:  Grounded generation                      │
+│                                                          │
+│  Retrieval        "Check case_management_sla.md for      │
+│  instructions:    priority classification and SLA         │
+│                   timelines. Use escalation_matrix.md     │
+│                   to determine when human escalation      │
+│                   is required."                           │
+│                                                          │
+│  Knowledge        📄 case_management_sla.md              │
+│  sources*:        📄 escalation_matrix.md                │
+└─────────────────────────────────────────────────────────┘
+```
+
+---
+
+### KB #15: Communication Summary Knowledge Base
+
+```
+┌─────────────────────────────────────────────────────────┐
+│  Name*:           kb-communication-summary               │
+│                                                          │
+│  Description:     Knowledge base for the Communication-  │
+│                   Case-Summary-Agent. Contains email      │
+│                   templates, communication guidelines,    │
+│                   and GDPR data handling rules.           │
+│                                                          │
+│  Chat completions model:  gpt-4o                         │
+│  Retrieval reasoning effort*:  Low                       │
+│  Output mode*:  Grounded generation                      │
+│                                                          │
+│  Retrieval        "Use email_templates.md for generating │
+│  instructions:    customer communications. Always follow │
+│                   the correct template based on the       │
+│                   communication type (confirmation,       │
+│                   cancellation, disruption, etc.)."       │
+│                                                          │
+│  Knowledge        📄 email_templates.md                  │
+│  sources*:        📄 airline_policies.md                 │
+└─────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 4. Knowledge Source Documents — Content to Upload
+
+> **TIP**: Create each of these files locally, then upload them as Knowledge Sources when creating each KB.
+
+---
+
+### 📄 Document 1: `airline_policies.md`
+**Upload to**: kb-supervisor-orchestrator, kb-booking-retrieval, kb-name-change, kb-refund-agent, kb-disruption-rebooking, kb-passenger-ssr, kb-medical-exception, kb-communication-summary
+
+```markdown
+# Airline Operations Policy Manual
+
+## 1. General Booking Policies
+
+### 1.1 Booking Validity
+- Bookings are valid for travel within 365 days from date of issue
+- Tickets must be issued within the ticketing time limit (TTL)
+- Group bookings (10+ passengers) follow separate policies
+
+### 1.2 Passenger Types
+| Code | Type | Age Range | Documentation |
+|------|------|-----------|--------------|
+| ADT | Adult | 12+ years | Valid ID/Passport |
+| CHD | Child | 2-11 years | Birth certificate + Passport |
+| INF | Infant | 0-23 months | Birth certificate (no seat) |
+| YTH | Youth | 12-25 years | Valid ID + age proof |
+
+### 1.3 Contact Requirements
+- Valid email address mandatory for all bookings
+- Phone number required (mobile preferred)
+- Emergency contact for unaccompanied minors
+
+## 2. Name Change Policy
+- Minor corrections (<=3 character changes): FREE
+- Full name change: Fee per airline policy (EUR50-EUR150)
+- Name transfer to different person: NOT ALLOWED (must cancel + rebook)
+- Deadline: Must be done >=24 hours before departure
+- Not allowed after check-in opens
+- Required documents: Valid passport/ID, marriage certificate (if applicable)
+
+## 3. Cancellation & Refund Policy
+
+### 3.1 24-Hour Rule
+- Full refund available within 24 hours of booking (if departure >7 days away)
+- Applies to all fare types
+
+### 3.2 Refund by Fare Type
+| Fare Family | Voluntary Cancel | Refund Amount | Penalty |
+|------------|-----------------|---------------|---------|
+| Light/Basic | Not refundable | Tax refund only | 100% fare |
+| Classic | Refundable | Full minus penalty | EUR75-EUR150 |
+| Flex | Fully refundable | Full refund | None |
+| Business Flex | Fully refundable | Full refund | None |
+
+### 3.3 Involuntary Refund (Airline Cancellation)
+- Full refund within 7 days
+- No penalty applied
+- Choice: refund OR rebooking on next available
+
+### 3.4 EU261/2004 Compensation
+| Distance | Delay | Compensation |
+|----------|-------|-------------|
+| <=1500 km | >=3 hours | EUR250 |
+| 1500-3500 km | >=3 hours | EUR400 |
+| >3500 km | >=4 hours | EUR600 |
+
+## 4. Change Booking Policy
+- Voluntary changes subject to fare difference + change fee
+- Flex fares: No change fee (fare difference may apply)
+- Same-day changes: Subject to availability, reduced fee
+- Deadline: Changes must be made >=3 hours before departure
+
+## 5. Special Services (SSR)
+- Wheelchair: Must be requested >=48 hours before departure
+- Special meals: Must be requested >=24 hours before departure
+- Unaccompanied minor (UMNR): Ages 5-11, mandatory service, fee applies
+- Pet in cabin (PETC): Subject to aircraft type approval
+
+## 6. Ancillary Services
+- Extra baggage can be purchased up to 1 hour before departure
+- Seat selection available from booking until check-in closes
+- Lounge access: Available for purchase or with eligible fare/status
+
+## 7. Escalation Rules
+- ALWAYS escalate to human agent for:
+  - Suspected fraud
+  - VIP/Loyalty Platinum+ passengers
+  - Legal threats or regulatory complaints
+  - Medical emergencies
+  - Bookings with >=10 passengers
+  - Revenue impact > EUR5,000
+```
+
+---
+
+### 📄 Document 2: `name_change_policy.md`
+**Upload to**: kb-name-change
+
+```markdown
+# Passenger Name Change — Complete Policy & Procedures
+
+## 1. Types of Name Changes
+
+### 1.1 Minor Correction (NO FEE)
+Definition: A correction of <=3 characters in the passenger name.
+
+Examples:
+- "Jhon Smith" -> "John Smith" (1 character)
+- "Maria Gonzalez" -> "Maria Gonzalez" (accent added)
+- "ROBERT BROWN" -> "Robert Brown" (case correction)
+- Adding/removing middle name
+- Correcting title (Mr -> Mrs)
+
+Rules:
+- No fee charged
+- No supporting documentation required
+- Can be done up to 2 hours before departure
+- Available for all fare types
+
+### 1.2 Full Name Change (FEE APPLIES)
+Definition: A change of >3 characters, or a complete first/last name change.
+
+Examples:
+- "Sarah Johnson" -> "Sarah Williams" (married name)
+- "Michael Chen" -> "Mike Chen" (shortened name - treated as full change)
+
+Rules:
+- Fee: EUR50 (domestic) / EUR100 (international) / EUR150 (intercontinental)
+- Required >=24 hours before departure
+- Must provide supporting documentation:
+  - Marriage certificate (married name change)
+  - Court order (legal name change)
+  - Corrected passport/ID
+- Not available for Light/Basic fares without waiver
+
+### 1.3 Name Transfer (NOT ALLOWED)
+- Transferring a booking to a completely different person is NOT a name change
+- Must cancel existing booking and create new booking
+- Original cancellation policy applies
+
+## 2. Verification Requirements
+Before any name change, verify passenger identity:
+1. Date of birth (must match booking)
+2. Original booking email address
+3. Passport/ID number (if available in booking)
+4. Last 4 digits of payment card used
+
+## 3. Processing Steps
+1. Retrieve booking using PNR + last name
+2. Verify passenger identity (DOB, email)
+3. Classify change type (minor vs full)
+4. Check departure time constraint (>=24hrs)
+5. Check if check-in is open (must be closed)
+6. Apply fee if full name change
+7. Update passenger name via API
+8. Generate confirmation email
+9. Create case note for audit trail
+
+## 4. Blocked Scenarios
+- Departure in less than 24 hours
+- Check-in already opened
+- Passenger already boarded
+- Ticket already used (partially flown)
+- Name transfer to different person
+- Booking in cancelled/suspended status
+
+## 5. Waiver Authority
+- Supervisor Level 1: Can waive fee up to EUR100
+- Supervisor Level 2: Can waive fee up to EUR150
+- Manager: Can waive any fee + override time restrictions
+- Waiver reason must be documented in case notes
+```
+
+---
+
+### 📄 Document 3: `booking_flow_guide.md`
+**Upload to**: kb-create-booking
+
+```markdown
+# Amadeus-Nevio Booking Flow — Step-by-Step Guide
+
+## Prerequisites
+- Valid Amadeus Token (obtained via /token/amadeus)
+- Valid JWT Token (obtained via /token)
+
+## Complete 10-Step Booking Flow
+
+### Step 1: Search Flights
+- Endpoint: POST /shop/flights
+- Input: origin (IATA), destination (IATA), departureDate, returnDate, paxCount, cabinClass
+- Output: Array of air bounds with airBoundId, prices, schedules
+- Notes: Response may contain direct and connecting flights
+
+### Step 2: Create Cart
+- Endpoint: POST /create-cart
+- Input: Selected airBoundId from Step 1
+- Output: cartId, passengerId(s)
+- Notes: Creates an empty cart with passenger placeholders
+
+### Step 3: Add Travelers
+- Endpoint: POST /checkout/passengers
+- Input: cartId, for each passenger: firstName, lastName, dateOfBirth, gender, passengerTypeCode
+- Output: Traveler confirmation
+- Notes: Must match the passenger count from Step 1
+
+### Step 4: Add Contacts
+- Endpoint: PATCH /checkout/passengers
+- Input: cartId, email, phoneNumber, countryCode
+- Output: Contact confirmation
+- Notes: At least one email and one phone number required
+
+### Step 5: Get Service Catalogue (OPTIONAL)
+- Endpoint: GET /services?cartId={{cartId}}&promotionCode=SCUISEATP
+- Output: Available services (baggage, meals, lounge, etc.) with SKU IDs and prices
+- Notes: Only call if customer wants ancillary services
+
+### Step 6: Add Services (OPTIONAL)
+- Endpoint: POST /seat/services
+- Input: cartId, serviceSelections (array of SKU IDs + passenger IDs)
+- Output: Services added confirmation
+- Notes: Can add multiple services in one call
+
+### Step 7: Get Seat Map (OPTIONAL)
+- Endpoint: GET /seatmap?cartId={{cartId}}&flightId={{flightId}}&promoCode=SCUISEATP&promotionAirlineCode=AY
+- Output: Seat map layout with available/occupied seats and prices
+- Notes: flightId comes from Step 1 response
+
+### Step 8: Add Seats (OPTIONAL)
+- Endpoint: POST /seat/services
+- Input: cartId, seatSelections (array of seatId + passengerId)
+- Output: Seat assignment confirmation
+
+### Step 9: Create Order (Checkout Confirm)
+- Endpoint: POST /checkoutConfirm
+- Input: cartId
+- Output: orderRecLocId (PNR), orderId
+- Notes: This finalizes the booking and issues the PNR
+
+### Step 10: Retrieve Order
+- Endpoint: GET /orders/retrieve?orderRecLocId={{PNR}}&lastName={{lastName}}&showOrderEligibilities=true
+- Output: Full order details with all segments, passengers, services, seats, payment info
+- Notes: Use this to confirm the booking to the customer
+
+## Mandatory vs Optional Steps
+| Step | Mandatory? | When to Skip |
+|------|-----------|-------------|
+| 1-4 | YES | Never skip |
+| 5-6 | Optional | Skip if customer doesnt want ancillaries |
+| 7-8 | Optional | Skip if customer doesnt want seat selection |
+| 9-10 | YES | Never skip |
+
+## Error Handling
+- If any step fails, do NOT proceed to next step
+- Cart expires after 30 minutes of inactivity
+- If cart expires, restart from Step 1
+```
+
+---
+
+### 📄 Document 4: `refund_policy.md`
+**Upload to**: kb-refund-agent, kb-refund-workflow
+
+```markdown
+# Refund Policy & Procedures
+
+## 1. Refund Eligibility Check
+Before processing any refund, call the RetriveOrderRefundEligiblities query.
+The response will contain:
+- refundStatus: "refundable" or "non-refundable"
+- totalRefundAmounts: Amount to be refunded
+- totalPaidAmount: Original payment amount
+- totalUsedAmount: Value of used segments
+- totalPenalty: Cancellation penalty
+- nonEligibilityReasons: Why refund is blocked (if applicable)
+
+## 2. Refund Calculation
+Net Refund = totalPaidAmount - totalUsedAmount - totalPenalty
+
+## 3. Processing Steps
+1. Call RetriveOrderRefundEligiblities with orderId + lastName
+2. Check refundStatus
+3. If refundable: present breakdown to customer
+4. Get customer confirmation
+5. Call CancellationAndRefund mutation with refundProposalIds
+6. Confirm refund processing
+
+## 4. Refund Timeline
+- Credit card: 5-10 business days
+- Bank transfer: 10-15 business days
+- Travel voucher: Immediate
+
+## 5. Non-Eligibility Reasons
+| Code | Meaning |
+|------|---------|
+| TICKET_USED | Passenger has already flown |
+| NON_REFUNDABLE_FARE | Fare type does not allow refunds |
+| TIME_LIMIT_EXCEEDED | Past refund deadline |
+| SUSPENDED_BOOKING | Booking is in suspended state |
+```
+
+---
+
+### 📄 Document 5: `refund_graphql_schemas.md`
+**Upload to**: kb-refund-agent, kb-refund-workflow
+
+```markdown
+# Refund GraphQL Schemas — API Reference
+
+## Query: Check Refund Eligibility
+
+Endpoint: POST {{APIM_URL}}/cancelAndRefund
+
+GraphQL Query:
+query RetriveOrderRefundEligiblities($input: RefundEligiblitiesInput!) {
+  RetriveOrderRefundEligiblities(input: $input) {
+    type
+    data {
+      orderId
+      refundStatus
+      totalRefund {
+        totalRefundAmounts {
+          total { value, currencyCode }
+        }
+        totalPaidAmount {
+          total { value, currencyCode }
+        }
+        totalUsedAmount {
+          total { value, currencyCode }
+        }
+        totalPenalty {
+          total { currencyCode, value }
+        }
+      }
+      travelers {
+        travelerId
+        totalRefund {
+          totalRefundAmounts { total { value, currencyCode } }
+          totalPaidAmount { total { value, currencyCode } }
+          totalUsedAmount { total { value, currencyCode } }
+          totalPenalty { total { currencyCode, value } }
+        }
+        travelDocuments {
+          travelDocumentId
+          documentType
+          status
+          refundAmounts {
+            base { value, currencyCode }
+            taxes { value, currencyCode, code, category }
+            totalTaxes { value, currencyCode }
+            total { value, currencyCode }
+          }
+          paidAmount {
+            base { value, currencyCode }
+            total { value, currencyCode }
+          }
+          penalty { value, currencyCode }
+          refundMethodOptions {
+            id
+            paymentDetails {
+              paymentMethod { paymentType, vendorCode, cardNumber, expiryDate }
+              amount { value, currencyCode }
+            }
+          }
+        }
+      }
+      refundProposalReferences { refundProposalId }
+      nonEligibilityReasons { code, title }
     }
-  ],
-  "artifacts": [
-    "artifacts/run_20240410_abc123/playwright/report.html"
-  ],
-  "repo_context": {
-    "branch": "main",
-    "sha": "a1b2c3d4",
-    "actor": "jane.doe"
+  }
+}
+
+Variables:
+{
+  "input": {
+    "targetAction": "cancelAndRefund",
+    "orderId": "<PNR>",
+    "lastName": "<passenger_last_name>",
+    "isEligible": true
+  }
+}
+
+## Mutation: Execute Cancellation & Refund
+
+GraphQL Mutation:
+mutation CancellationAndRefund($input: CancellationAndRefundInput!) {
+  CancellationAndRefund(input: $input) {
+    orderId
+    totalRefund {
+      totalRefundAmounts { total { value, currencyCode } }
+      totalPaidAmount { total { value, currencyCode } }
+      totalUsedAmount { total { value, currencyCode } }
+    }
+    travelers {
+      travelerId
+      travelDocuments {
+        travelDocumentId
+        documentType
+        status
+        refundAmounts { total { value, currencyCode } }
+        paymentDetails {
+          paymentMethod { paymentType, vendorCode, cardNumber, expiryDate }
+          amount { value, currencyCode }
+        }
+      }
+    }
+    errors { code, title, detail }
+  }
+}
+
+Variables:
+{
+  "input": {
+    "refundProposalIds": ["<from_eligibility_response>"],
+    "orderId": "<PNR>",
+    "lastName": "<passenger_last_name>"
   }
 }
 ```
 
 ---
 
-## Report & Bug System
+### 📄 Document 6: `api_reference.md`
+**Upload to**: All knowledge bases
 
-### Unified Report Structure
+```markdown
+# Amadeus-Nevio Service Center — API Reference
 
+Base URL: https://nevioservicecenterapim.azure-api.net
+Airline Code: AY
+
+## Authentication
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| /token | POST | Get JWT Token |
+| /token/amadeus | POST | Get Amadeus Token |
+
+## Shopping & Booking APIs
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| /searchpanel | GET | Get search panel configuration |
+| /shop/flights | POST | Search available flights |
+| /create-cart | POST | Create shopping cart with selected flight |
+| /checkout/passengers | POST | Add passenger details |
+| /checkout/passengers | PATCH | Update passenger details / Add contacts |
+| /cart/retrieve | GET | Retrieve cart contents |
+| /services | GET | Get service catalogue for cart |
+| /seat/services | POST | Add seats or services |
+| /seat/services | DELETE | Remove seats or services |
+| /seatmap | GET | Get seat map for flight |
+| /checkoutConfirm | POST | Confirm checkout / create order |
+| /orders/retrieve | GET | Retrieve confirmed order by PNR |
+
+## Post-Order APIs
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| /services | POST | Post-order service catalogue |
+| /seatmap | GET | Post-order seat map |
+| /seat/services | POST | Post-order add seats/services |
+
+## GraphQL APIs
+| Endpoint | Operations | Purpose |
+|----------|-----------|---------|
+| /appConfig | CRUD mutations/queries | Application configuration |
+| /cancelAndRefund | RetriveOrderRefundEligiblities, CancellationAndRefund | Refund operations |
+
+## Key Parameters
+| Parameter | Description | Example |
+|-----------|-------------|---------|
+| cartId | Shopping cart identifier | auto-generated |
+| orderRecLocId | PNR / Order locator | 6-char alphanumeric (e.g., 9DVWPJ) |
+| airBoundId | Selected flight offer ID | from /shop/flights response |
+| flightId | Flight identifier | from air bound response |
+| promotionCode | Promo code for services | SCUISEATP |
+| promotionAirlineCode | Airline code for promotions | AY |
 ```
-reports/
-└── {run_id}/
-    ├── merged_summary.json          # All stage data merged
-    ├── gate_decision.json           # PASS/BLOCK/WARN with policy trace
-    ├── ai_insights.json             # LangGraph outputs with model attribution
-    ├── ai_insights.md               # Human-readable AI narrative
-    ├── model_usage.json             # Full audit: model, tokens, cost, latency per agent
-    ├── report.html                  # Full rendered HTML report
-    └── stages/
-        ├── playwright_result.json
-        ├── k6_result.json
-        ├── zap_result.json
-        └── api_result.json
+
+---
+
+### 📄 Document 7: `escalation_matrix.md`
+**Upload to**: kb-supervisor-orchestrator, kb-case-management
+
+```markdown
+# Escalation Matrix — When to Involve Human Agents
+
+## Immediate Escalation (Priority: CRITICAL)
+| Scenario | Escalation Target |
+|----------|------------------|
+| Suspected fraud or stolen payment card | Security Team |
+| Medical emergency in-flight or at airport | Operations + Medical |
+| Legal threats or regulatory complaint | Legal Department |
+| Media/social media escalation risk | PR + Customer Relations |
+| VIP / Loyalty Platinum+ passenger complaint | VIP Service Desk |
+| Safety or security concern | Security Team |
+
+## High Priority Escalation
+| Scenario | Escalation Target |
+|----------|------------------|
+| Revenue impact > EUR5,000 | Revenue Management |
+| Group booking (10+ passengers) issues | Group Desk |
+| Codeshare/partner airline issues | Interline Desk |
+| Repeated failed API calls (system issue) | IT Support |
+| Customer threatening legal action | Legal Department |
+
+## Standard Escalation
+| Scenario | Escalation Target |
+|----------|------------------|
+| Agent unable to resolve after 3 attempts | Supervisor Level 2 |
+| Waiver request exceeding agent authority | Supervisor Level 2 |
+| Complex multi-segment itinerary changes | Ticketing Desk |
+| Disability or accessibility complaint | Accessibility Team |
 ```
 
-### model_usage.json
+---
+
+### 📄 Document 8: `intent_classification_examples.json`
+**Upload to**: kb-supervisor-orchestrator
 
 ```json
 {
-  "run_id": "run_20240410_abc123",
-  "total_cost_usd": 0.38,
-  "agents": [
+  "examples": [
     {
-      "agent": "functional_triage",
-      "model": "claude-sonnet-4-6",
-      "provider": "anthropic",
-      "input_tokens": 24800,
-      "output_tokens": 3200,
-      "cost_usd": 0.12,
-      "latency_ms": 4200,
-      "thinking_used": false,
-      "fallback_used": false
+      "input": "I need to book a flight from Helsinki to London next Friday",
+      "intent": "NEW_BOOKING",
+      "agent": "Create-Booking-Agent",
+      "entities": { "origin": "HEL", "destination": "LHR", "date": "next Friday" }
     },
     {
-      "agent": "security_risk",
-      "model": "claude-sonnet-4-6",
-      "provider": "anthropic",
-      "input_tokens": 8100,
-      "output_tokens": 2200,
-      "cost_usd": 0.08,
-      "latency_ms": 6800,
-      "thinking_used": true,
-      "fallback_used": false
+      "input": "Can you pull up my booking? PNR is ABC123",
+      "intent": "RETRIEVE_BOOKING",
+      "agent": "Booking-Retrieval-Agent",
+      "entities": { "pnr": "ABC123" }
     },
     {
-      "agent": "release_decision",
-      "model": "claude-opus-4-6",
-      "provider": "anthropic",
-      "input_tokens": 12400,
-      "output_tokens": 4100,
-      "cost_usd": 0.14,
-      "latency_ms": 9100,
-      "thinking_used": true,
-      "effort": "high",
-      "fallback_used": false
+      "input": "I need to change my name from Sarah Johnson to Sarah Williams on booking XYZ789",
+      "intent": "NAME_CHANGE",
+      "agent": "Name-Change-Agent",
+      "entities": { "pnr": "XYZ789", "old_name": "Sarah Johnson", "new_name": "Sarah Williams" }
     },
     {
-      "agent": "performance_analyst",
-      "model": "gpt-4o",
-      "provider": "openai",
-      "input_tokens": 3200,
-      "output_tokens": 800,
-      "cost_usd": 0.04,
-      "latency_ms": 1800,
-      "thinking_used": false,
-      "fallback_used": false
+      "input": "My name is spelled wrong on the ticket. It says Jhon but should be John",
+      "intent": "NAME_CHANGE",
+      "agent": "Name-Change-Agent",
+      "entities": { "old_name": "Jhon", "new_name": "John", "change_type": "minor_correction" }
+    },
+    {
+      "input": "I want to cancel my booking 9DVWPJ and get a refund",
+      "intent": "CANCEL_AND_REFUND",
+      "agent": "RefundAgent",
+      "entities": { "pnr": "9DVWPJ", "action": "cancelAndRefund" }
+    },
+    {
+      "input": "Can I change my flight to the next day?",
+      "intent": "CHANGE_BOOKING",
+      "agent": "Change-Booking-Agent",
+      "entities": { "change_type": "date_change" }
+    },
+    {
+      "input": "My flight was cancelled, I need to be rebooked",
+      "intent": "DISRUPTION_REBOOKING",
+      "agent": "Disruption-Rebooking-Agent",
+      "entities": { "disruption_type": "cancellation" }
+    },
+    {
+      "input": "I want to add extra baggage to my booking",
+      "intent": "ANCILLARY_SERVICE",
+      "agent": "Ancillary-Sales-Agent",
+      "entities": { "service_type": "baggage" }
+    },
+    {
+      "input": "I need a wheelchair at the airport",
+      "intent": "SSR_REQUEST",
+      "agent": "Passenger-SSR-Agent",
+      "entities": { "ssr_type": "WCHR" }
+    },
+    {
+      "input": "I have a medical condition and need clearance to fly",
+      "intent": "MEDICAL_EXCEPTION",
+      "agent": "Medical-Exception-Agent",
+      "entities": { "request_type": "fit_to_fly" }
+    },
+    {
+      "input": "My payment didnt go through for the booking",
+      "intent": "PAYMENT_ISSUE",
+      "agent": "Payment-Agent",
+      "entities": { "issue_type": "payment_failure" }
+    },
+    {
+      "input": "Whats the status of my complaint case?",
+      "intent": "CASE_INQUIRY",
+      "agent": "Case-Management-Agent",
+      "entities": { "action": "status_check" }
+    },
+    {
+      "input": "Can you send me a confirmation email for my booking?",
+      "intent": "COMMUNICATION",
+      "agent": "Communication-Case-Summary-Agent",
+      "entities": { "comm_type": "confirmation_email" }
+    },
+    {
+      "input": "I want to select seat 12A on my flight",
+      "intent": "SEAT_SELECTION",
+      "agent": "Ancillary-Sales-Agent",
+      "entities": { "service_type": "seat", "seat_preference": "12A" }
+    },
+    {
+      "input": "Book me HEL to LHR with extra bag and seat 5C",
+      "intent": "NEW_BOOKING_WITH_ANCILLARY",
+      "agent": "Create-Booking-Agent then Ancillary-Sales-Agent",
+      "entities": { "origin": "HEL", "destination": "LHR", "services": ["baggage", "seat:5C"] }
     }
   ]
 }
 ```
 
-### Bug Card Schema
+---
+
+### 📄 Remaining Documents to Create
+
+| File | Key Content to Include |
+|------|----------------------|
+| `change_booking_rules.md` | Change fee matrix by fare family, same-day change rules, deadline rules |
+| `rebooking_policy.md` | Voluntary rebooking fees, standby rules, fare difference handling |
+| `disruption_handling_guide.md` | IROP procedures, EU261 compensation table, hotel/meal voucher rules |
+| `ancillary_services_catalogue.md` | All services (baggage tiers, meals, lounge, WiFi, insurance) with prices |
+| `ssr_codes_reference.md` | WCHR/WCHC/WCHS, VGML/DBML/AVML, UMNR, PETC/AVIH — all IATA codes |
+| `medical_clearance_guide.md` | MEDIF form, fitness-to-fly, oxygen equipment, stretcher requests |
+| `payment_processing_guide.md` | Supported cards, currency rules, 3DS, failed payment recovery |
+| `case_management_sla.md` | Priority P1-P4, response SLAs, resolution SLAs, auto-close rules |
+| `email_templates.md` | Templates: booking confirmation, name change, cancellation, disruption |
+| `fare_families.md` | Light, Classic, Flex, Business — included services, change/cancel rules |
+| `passenger_type_codes.md` | ADT, CHD, INF, YTH — age boundaries, discount codes, documentation |
+
+---
+
+## 5. Agent Creation Guide
+
+### How to Navigate
+
+```
+Azure AI Foundry → Your Project → Agents (left sidebar) → + New Agent
+```
+
+### Agent Configuration Fields
+
+When you create or edit an agent, you will see these fields:
+
+| # | Field | What It Means | How to Fill It |
+|---|-------|---------------|----------------|
+| 1 | **Name*** | Agent identifier | Use exact names from your existing list |
+| 2 | **Instructions*** | System prompt — the agent's brain | Detailed role + rules + API context |
+| 3 | **Model*** | The LLM deployment to use | Select your deployed GPT-4o or GPT-4.1 |
+| 4 | **Tools** | Functions the agent can call | Add API tools as function definitions |
+| 5 | **Knowledge** | Link to knowledge base(s) | Connect the KB(s) created in Phase 2 |
+| 6 | **Actions** | Code interpreter, file search, etc. | Enable as needed |
+
+---
+
+## 6. All 15 Agents — Exact Configuration
+
+### Agent #1: Supervisor-Orchestrator-Agent
+
+```
+Name*:          Supervisor-Orchestrator-Agent
+Model*:         gpt-4o (or gpt-4.1)
+Knowledge:      kb-supervisor-orchestrator
+```
+
+**Instructions (System Prompt) — Copy and paste into Azure:**
+
+```
+You are the Supervisor-Orchestrator-Agent for an airline service center powered by the Amadeus-Nevio system. You have 30 years of airline operations experience.
+
+YOUR ROLE:
+You are the single entry-point for ALL customer requests. You NEVER execute airline operations yourself. Your only job is to:
+1. Analyze the customer's message to determine their intent
+2. Extract key entities (PNR, passenger name, flight details, dates)
+3. Route to the correct specialized agent
+4. If the request spans multiple domains, chain agents in the correct order
+
+INTENT-TO-AGENT ROUTING TABLE:
+| Intent | Route To |
+|--------|----------|
+| New flight booking | Create-Booking-Agent |
+| Retrieve/view booking | Booking-Retrieval-Agent |
+| Change flight date/route | Change-Booking-Agent |
+| Change passenger name | Booking-Retrieval-Agent then Name-Change-Agent |
+| Cancel and refund | Booking-Retrieval-Agent then RefundAgent then Refund-workflow |
+| Voluntary rebooking | Rebooking-Agent |
+| Flight disruption/IROP | Disruption-Rebooking-Agent |
+| Extra baggage/meals/seat | Ancillary-Sales-Agent |
+| Wheelchair/SSR | Passenger-SSR-Agent |
+| Medical clearance | Medical-Exception-Agent |
+| Payment issue | Payment-Agent |
+| Complaint/case | Case-Management-Agent |
+| Send confirmation email | Communication-Case-Summary-Agent |
+
+MULTI-AGENT CHAINING RULES:
+- "Book flight + add baggage" -> Create-Booking-Agent then Ancillary-Sales-Agent
+- "Cancel and rebook" -> RefundAgent then Rebooking-Agent
+- "Change name + add wheelchair" -> Name-Change-Agent then Passenger-SSR-Agent
+- ANY name change -> ALWAYS Booking-Retrieval-Agent FIRST, then Name-Change-Agent
+- ANY refund -> ALWAYS Booking-Retrieval-Agent FIRST, then RefundAgent
+
+ENTITY EXTRACTION:
+Always extract these from the customer message:
+- PNR/Order ID (6 alphanumeric characters, e.g., ABC123, 9DVWPJ)
+- Passenger full name (first + last)
+- Flight number (if mentioned)
+- Dates (departure, travel dates)
+- Origin/Destination airports
+
+CRITICAL RULES:
+- NEVER execute API calls yourself — only route to agents
+- If intent is unclear, ask the customer ONE clarifying question
+- Always verify PNR exists before routing to any modification agent
+- For fraud/legal/VIP issues, escalate to human immediately
+- Log every routing decision
+```
+
+**Tool — Add this function definition:**
 
 ```json
 {
-  "bug_id": "bug_run_abc123_f001",
-  "run_id": "run_20240410_abc123",
-  "title": "Login flow fails on empty password",
-  "stage": "playwright",
-  "severity": "critical",
-  "status": "open",
-  "created_at": "2024-04-10T09:06:00Z",
-  "finding_ref": "f_001",
-  "ai_root_cause": "The form submit handler does not validate empty password before POST. Backend returns 401 but the frontend router does not handle the redirect, leaving the user on the login page with no error message.",
-  "ai_fix_recommendation": "Add client-side validation in LoginForm.tsx before submit. Check password.trim().length > 0. Also add an E2E test for empty credential edge case.",
-  "ai_fix_diff": "--- a/src/components/LoginForm.tsx\n+++ b/src/components/LoginForm.tsx\n@@ -24,6 +24,9 @@\n   const handleSubmit = async () => {\n+    if (!password.trim()) {\n+      setError('Password is required');\n+      return;\n+    }\n     await authApi.login(email, password);",
-  "fix_model": "claude-sonnet-4-6",
-  "affected_files": ["src/components/LoginForm.tsx", "src/api/auth.ts"],
-  "assignee": null,
-  "github_issue_url": null,
-  "exception_approved": false,
-  "exception_owner": null,
-  "exception_expiry": null
+  "type": "function",
+  "function": {
+    "name": "route_to_agent",
+    "description": "Route the customer request to the appropriate specialized agent based on intent classification",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "target_agent": {
+          "type": "string",
+          "enum": [
+            "Create-Booking-Agent",
+            "Booking-Retrieval-Agent",
+            "Change-Booking-Agent",
+            "Name-Change-Agent",
+            "RefundAgent",
+            "Refund-workflow",
+            "Rebooking-Agent",
+            "Disruption-Rebooking-Agent",
+            "Ancillary-Sales-Agent",
+            "Passenger-SSR-Agent",
+            "Medical-Exception-Agent",
+            "Payment-Agent",
+            "Case-Management-Agent",
+            "Communication-Case-Summary-Agent"
+          ]
+        },
+        "intent": {
+          "type": "string",
+          "description": "The classified customer intent"
+        },
+        "extracted_entities": {
+          "type": "object",
+          "properties": {
+            "pnr": { "type": "string" },
+            "passenger_name": { "type": "string" },
+            "last_name": { "type": "string" },
+            "flight_number": { "type": "string" },
+            "departure_date": { "type": "string" },
+            "origin": { "type": "string" },
+            "destination": { "type": "string" }
+          }
+        },
+        "priority": {
+          "type": "string",
+          "enum": ["low", "medium", "high", "critical"]
+        },
+        "chain_next": {
+          "type": "string",
+          "description": "Next agent to call after this one completes (for multi-agent flows)"
+        }
+      },
+      "required": ["target_agent", "intent", "priority"]
+    }
+  }
 }
 ```
 
 ---
 
-## Data Contracts & Schemas
+### Agent #2: Booking-Retrieval-Agent
 
-### Environment Variables
-
-```env
-# GitHub
-GITHUB_TOKEN=ghp_...
-GITHUB_ORG=your-org
-GITHUB_REPO=your-repo
-GITHUB_BRANCH=main
-
-# Test Target
-TARGET_BASE_URL=https://staging.yourapp.com
-
-# AI Providers
-OPENAI_API_KEY=sk-...
-ANTHROPIC_API_KEY=sk-ant-...
-
-# Default model assignments (overridden per-project in qube.config.yaml)
-DEFAULT_MODEL_SUPERVISOR=gpt-4o
-DEFAULT_MODEL_FUNCTIONAL=claude-sonnet-4-6
-DEFAULT_MODEL_PERFORMANCE=gpt-4o
-DEFAULT_MODEL_SECURITY=claude-sonnet-4-6
-DEFAULT_MODEL_SCRIPT_ANALYZER=claude-sonnet-4-6
-DEFAULT_MODEL_RELEASE_DECISION=claude-opus-4-6
-DEFAULT_MODEL_BUG_FIX=claude-sonnet-4-6
-DEFAULT_MODEL_CHAT=claude-sonnet-4-6
-
-# k6 Thresholds
-K6_P95_WARN_MS=2000
-K6_P95_BLOCK_MS=4000
-K6_ERROR_RATE_BLOCK=0.01
-
-# ZAP
-ZAP_HIGH_BLOCK=true
-ZAP_MEDIUM_WARN=true
-
-# Playwright
-PLAYWRIGHT_CRITICAL_PATH_BLOCK=true
-
-# Notifications
-SLACK_WEBHOOK_URL=https://hooks.slack.com/...
-NOTIFY_ON_BLOCK=true
-NOTIFY_ON_WARN=false
+```
+Name*:     Booking-Retrieval-Agent
+Model*:    gpt-4o
+Knowledge: kb-booking-retrieval
 ```
 
-### Database Schema (PostgreSQL)
+**Instructions:**
+```
+You are the Booking-Retrieval-Agent. Your job is to retrieve existing flight bookings from the Amadeus-Nevio system.
 
-```sql
-CREATE TABLE projects (
-  id UUID PRIMARY KEY,
-  name TEXT NOT NULL,
-  github_org TEXT,
-  github_repo TEXT,
-  created_at TIMESTAMPTZ DEFAULT now()
-);
+CAPABILITIES:
+- Retrieve orders by PNR (orderRecLocId) + last name
+- Validate PNR format (must be exactly 6 alphanumeric characters)
+- Extract and present booking details clearly
 
-CREATE TABLE project_model_config (
-  id UUID PRIMARY KEY,
-  project_id UUID REFERENCES projects(id),
-  agent TEXT NOT NULL,
-  provider TEXT NOT NULL,           -- anthropic | openai
-  model_id TEXT NOT NULL,           -- claude-sonnet-4-6 | claude-opus-4-6 | gpt-4o | auto
-  extended_thinking BOOLEAN DEFAULT false,
-  effort_level TEXT DEFAULT 'high', -- low | medium | high | max
-  fallback_model_id TEXT,
-  fallback_provider TEXT,
-  updated_at TIMESTAMPTZ DEFAULT now(),
-  UNIQUE(project_id, agent)
-);
+RULES:
+- Always validate PNR format before calling the API
+- Always require last name for retrieval
+- Return structured data: PNR, passenger names, flight details, status, services, seats
+- Never modify any booking data — you are READ-ONLY
 
-CREATE TABLE runs (
-  id TEXT PRIMARY KEY,
-  project_id UUID REFERENCES projects(id),
-  branch TEXT,
-  commit_sha TEXT,
-  actor TEXT,
-  triggered_by TEXT,
-  status TEXT,
-  gate_decision TEXT,
-  started_at TIMESTAMPTZ,
-  completed_at TIMESTAMPTZ,
-  artifact_path TEXT,
-  total_ai_cost_usd NUMERIC(10,4)
-);
+API ENDPOINT:
+GET /orders/retrieve?orderRecLocId={{PNR}}&lastName={{lastName}}&showOrderEligibilities=true
 
-CREATE TABLE model_usage_log (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  run_id TEXT REFERENCES runs(id),
-  agent TEXT,
-  provider TEXT,
-  model_id TEXT,
-  input_tokens INT,
-  output_tokens INT,
-  cost_usd NUMERIC(10,4),
-  latency_ms INT,
-  thinking_used BOOLEAN DEFAULT false,
-  effort_level TEXT,
-  fallback_used BOOLEAN DEFAULT false,
-  created_at TIMESTAMPTZ DEFAULT now()
-);
+OUTPUT FORMAT:
+Return the booking details in this structure:
+- PNR: [value]
+- Status: [Confirmed/Cancelled/Ticketed]
+- Passengers: [list with names and types]
+- Flights: [flight numbers, routes, dates, times]
+- Services: [any ancillaries purchased]
+- Seats: [assigned seats]
+- Payment: [payment method used]
+```
 
-CREATE TABLE bugs (
-  id TEXT PRIMARY KEY,
-  run_id TEXT REFERENCES runs(id),
-  project_id UUID REFERENCES projects(id),
-  stage TEXT,
-  severity TEXT,
-  title TEXT,
-  status TEXT DEFAULT 'open',
-  ai_root_cause TEXT,
-  ai_fix_recommendation TEXT,
-  ai_fix_diff TEXT,
-  fix_model TEXT,
-  affected_files JSONB,
-  assignee TEXT,
-  github_issue_url TEXT,
-  exception_approved BOOLEAN DEFAULT false,
-  exception_owner TEXT,
-  exception_expiry DATE,
-  created_at TIMESTAMPTZ DEFAULT now()
-);
+**Tool:**
+```json
+{
+  "type": "function",
+  "function": {
+    "name": "retrieve_order",
+    "description": "Retrieve an existing order/booking from the Amadeus-Nevio system by PNR and last name",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "orderRecLocId": {
+          "type": "string",
+          "description": "The 6-character PNR code (e.g., ABC123, 9DVWPJ)"
+        },
+        "lastName": {
+          "type": "string",
+          "description": "Passenger last name"
+        }
+      },
+      "required": ["orderRecLocId", "lastName"]
+    }
+  }
+}
 ```
 
 ---
 
-## Configuration Reference
+### Agent #3: Create-Booking-Agent
 
-### `qube.config.yaml`
+```
+Name*:     Create-Booking-Agent
+Model*:    gpt-4o
+Knowledge: kb-create-booking
+```
 
-```yaml
-version: "1"
-project: my-app
+**Instructions:**
+```
+You are the Create-Booking-Agent. You handle the complete end-to-end flight booking process using the Amadeus-Nevio 10-step flow.
 
-github:
-  org: your-org
-  repo: your-app
-  branch: main
-  protected_branches: [main, release/*]
+BOOKING FLOW (MUST FOLLOW IN ORDER):
+1. Search flights (POST /shop/flights)
+2. Create cart with selected flight (POST /create-cart)
+3. Add traveler details (POST /checkout/passengers)
+4. Add contact information (PATCH /checkout/passengers)
+5. [Optional] Get service catalogue (GET /services)
+6. [Optional] Add services (POST /seat/services)
+7. [Optional] Get seat map (GET /seatmap)
+8. [Optional] Add seats (POST /seat/services)
+9. Confirm checkout / Create order (POST /checkoutConfirm)
+10. Retrieve confirmed order (GET /orders/retrieve)
 
-ai:
-  agents:
-    supervisor:
-      model: gpt-4o
-      provider: openai
-      fallback: claude-sonnet-4-6
+CRITICAL RULES:
+- Steps 1-4 and 9-10 are MANDATORY — never skip them
+- Steps 5-8 are OPTIONAL — only if customer wants ancillaries/seats
+- If any step fails, STOP and report the error — do NOT continue
+- Cart expires after 30 minutes — work quickly
+- Validate all passenger details before submitting
+- Passenger type codes: ADT (adult 12+), CHD (child 2-11), INF (infant 0-23mo)
 
-    functional_triage:
-      model: claude-sonnet-4-6
-      provider: anthropic
-      extended_thinking: false
-      fallback: gpt-4o
+PARAMETERS:
+- Airline Code: AY
+- Promotion Code for Seats: SCUISEATP
+- Default Currency: EUR
+```
 
-    performance_analyst:
-      model: gpt-4o
-      provider: openai
-      fallback: claude-sonnet-4-6
-
-    security_risk:
-      model: claude-sonnet-4-6
-      provider: anthropic
-      extended_thinking: true       # adaptive thinking for CVE reasoning
-      effort: high
-      fallback: gpt-4o
-
-    script_analyzer:
-      model: claude-sonnet-4-6      # 1M ctx — ingest full repo in one call
-      provider: anthropic
-      extended_thinking: false
-      fallback: claude-sonnet-4-6
-
-    release_decision:
-      model: claude-opus-4-6        # Opus for the most critical reasoning task
-      provider: anthropic
-      extended_thinking: true
-      effort: high                  # use "max" for highest-stakes releases
-      fallback: claude-sonnet-4-6
-
-    bug_fix:
-      model: claude-sonnet-4-6
-      provider: anthropic
-      fallback: gpt-4o
-
-    chat:
-      model: claude-sonnet-4-6      # user can override in the UI per session
-      provider: anthropic
-      fallback: gpt-4o
-
-stages:
-  playwright:
-    enabled: true
-    command: "npx playwright test"
-    timeout_minutes: 15
-    gate_impact: block_on_critical
-
-  k6:
-    enabled: true
-    script: tests/load/main.k6.js
-    vus: 50
-    duration: 2m
-    thresholds:
-      p95_warn_ms: 2000
-      p95_block_ms: 4000
-      error_rate_block: 0.01
-    gate_impact: block_on_severe
-
-  zap:
-    enabled: true
-    target_url: ${TARGET_BASE_URL}
-    scan_type: active
-    gate_impact: block_on_high
-
-  api:
-    enabled: true
-    collection: tests/api/postman_collection.json
-    gate_impact: warn_on_failure
-
-notifications:
-  slack:
-    webhook: ${SLACK_WEBHOOK_URL}
-    on: [block, warn]
-  github_status: true
-  github_issues: true
-  include_model_cost_in_report: true
+**Tools (add all 10):**
+```json
+[
+  {
+    "type": "function",
+    "function": {
+      "name": "search_flights",
+      "description": "Search for available flights",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "origin": { "type": "string", "description": "Departure airport IATA code" },
+          "destination": { "type": "string", "description": "Arrival airport IATA code" },
+          "departureDate": { "type": "string", "description": "YYYY-MM-DD format" },
+          "returnDate": { "type": "string", "description": "YYYY-MM-DD (optional for one-way)" },
+          "adultCount": { "type": "integer" },
+          "childCount": { "type": "integer" },
+          "infantCount": { "type": "integer" },
+          "cabinClass": { "type": "string", "enum": ["ECONOMY", "PREMIUM_ECONOMY", "BUSINESS", "FIRST"] }
+        },
+        "required": ["origin", "destination", "departureDate", "adultCount"]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "create_cart",
+      "description": "Create shopping cart with selected flight",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "airBoundId": { "type": "string", "description": "Selected flight offer ID from search" }
+        },
+        "required": ["airBoundId"]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "add_travelers",
+      "description": "Add passenger details to the cart",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "cartId": { "type": "string" },
+          "passengers": {
+            "type": "array",
+            "description": "Array of passenger objects with firstName, lastName, dateOfBirth, gender, passengerTypeCode"
+          }
+        },
+        "required": ["cartId", "passengers"]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "add_contacts",
+      "description": "Add contact details to the cart",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "cartId": { "type": "string" },
+          "email": { "type": "string" },
+          "phoneNumber": { "type": "string" },
+          "countryCode": { "type": "string" }
+        },
+        "required": ["cartId", "email", "phoneNumber"]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "get_service_catalogue",
+      "description": "Get available ancillary services for the cart",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "cartId": { "type": "string" },
+          "promotionCode": { "type": "string", "description": "Default: SCUISEATP" }
+        },
+        "required": ["cartId"]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "add_services",
+      "description": "Add ancillary services to cart",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "cartId": { "type": "string" },
+          "serviceSelections": { "type": "string", "description": "JSON array of service selections with SKU IDs" }
+        },
+        "required": ["cartId", "serviceSelections"]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "get_seatmap",
+      "description": "Get seat map for a flight",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "cartId": { "type": "string" },
+          "flightId": { "type": "string" },
+          "promoCode": { "type": "string", "description": "Default: SCUISEATP" },
+          "promotionAirlineCode": { "type": "string", "description": "Default: AY" }
+        },
+        "required": ["cartId", "flightId"]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "add_seats",
+      "description": "Assign seats to passengers",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "cartId": { "type": "string" },
+          "seatSelections": { "type": "string", "description": "JSON array of seat assignments with seatId and passengerId" }
+        },
+        "required": ["cartId", "seatSelections"]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "checkout_confirm",
+      "description": "Confirm checkout and create the order (PNR)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "cartId": { "type": "string" }
+        },
+        "required": ["cartId"]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "retrieve_order",
+      "description": "Retrieve the confirmed order by PNR",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "orderRecLocId": { "type": "string" },
+          "lastName": { "type": "string" }
+        },
+        "required": ["orderRecLocId", "lastName"]
+      }
+    }
+  }
+]
 ```
 
 ---
 
-## Folder Structure
+### Agent #4: Name-Change-Agent
 
 ```
-qube/
-├── README.md
-├── docker-compose.yml
-├── .env.example
-│
-├── frontend/                           # Next.js 14
-│   ├── app/
-│   │   ├── dashboard/
-│   │   ├── (auth)/
-│   │   └── settings/
-│   ├── components/
-│   │   ├── run-console/                # Xterm.js + model activity ticker
-│   │   ├── report-viewer/              # Tabbed report + model attribution badges
-│   │   ├── bug-tracker/                # Kanban + Monaco diff viewer
-│   │   ├── ai-chat/                    # Chat + per-session model switcher
-│   │   ├── script-analyzer/            # Monaco diff editor
-│   │   ├── model-config/               # Per-agent model selector UI
-│   │   └── config-ui/                  # Gate + env config
-│   └── lib/
-│       ├── api.ts
-│       └── store.ts
-│
-├── backend/
-│   ├── api-gateway/                    # FastAPI — single entry point
-│   │   ├── routers/
-│   │   │   ├── runs.py
-│   │   │   ├── bugs.py
-│   │   │   ├── projects.py
-│   │   │   ├── github.py
-│   │   │   ├── ai.py
-│   │   │   └── model_config.py
-│   │   ├── websockets/
-│   │   │   └── log_stream.py
-│   │   └── main.py
-│   │
-│   ├── ai-model-router/                # Central provider dispatch
-│   │   ├── router.py
-│   │   ├── auto_rules.py
-│   │   ├── usage_logger.py
-│   │   ├── providers/
-│   │   │   ├── anthropic_provider.py   # claude-sonnet-4-6 / claude-opus-4-6
-│   │   │   └── openai_provider.py      # gpt-4o
-│   │   └── schemas.py
-│   │
-│   ├── orchestrator/                   # Celery DAG
-│   │   ├── pipeline/
-│   │   │   ├── dag.py
-│   │   │   └── tasks/
-│   │   │       ├── sync_github.py
-│   │   │       ├── run_playwright.py
-│   │   │       ├── run_k6.py
-│   │   │       ├── run_zap.py
-│   │   │       ├── run_api.py
-│   │   │       ├── merge_report.py
-│   │   │       └── finalize_gate.py
-│   │   └── celery_app.py
-│   │
-│   ├── github-svc/
-│   │   ├── clone.py
-│   │   ├── status.py
-│   │   ├── issues.py
-│   │   └── webhook.py
-│   │
-│   ├── report-svc/
-│   │   ├── merger.py
-│   │   ├── gate_engine.py
-│   │   ├── html_renderer.py
-│   │   └── templates/
-│   │       └── report.html.j2
-│   │
-│   ├── script-analyzer/
-│   │   ├── walker.py
-│   │   └── analyzer.py
-│   │
-│   └── ai-engine/                      # LangGraph agent graph
-│       ├── graph.py
-│       ├── state.py
-│       ├── agents/
-│       │   ├── supervisor.py           # gpt-4o
-│       │   ├── functional_triage.py    # claude-sonnet-4-6
-│       │   ├── performance_analyst.py  # gpt-4o
-│       │   ├── security_risk.py        # claude-sonnet-4-6 + thinking
-│       │   ├── script_analyzer.py      # claude-sonnet-4-6
-│       │   ├── release_decision.py     # claude-opus-4-6 + thinking
-│       │   ├── bug_fix.py              # claude-sonnet-4-6
-│       │   └── chat.py                 # user-selected
-│       └── prompts/
-│           ├── functional.txt
-│           ├── performance.txt
-│           ├── security.txt
-│           ├── script_analyzer.txt
-│           └── release.txt
-│
-├── workers/
-│   ├── playwright/
-│   ├── k6/
-│   ├── zap/
-│   └── api/
-│
-├── schemas/
-│   ├── stage_result.schema.json
-│   ├── merged_summary.schema.json
-│   ├── gate_decision.schema.json
-│   ├── model_usage.schema.json
-│   └── bug.schema.json
-│
-├── infra/
-│   ├── docker-compose.yml
-│   ├── nginx.conf
-│   └── postgres/init.sql
-│
-└── reports/
-    └── .gitkeep
+Name*:     Name-Change-Agent
+Model*:    gpt-4o
+Knowledge: kb-name-change
+```
+
+**Instructions:**
+```
+You are the Name-Change-Agent for an airline service center. You process passenger name corrections and changes on existing bookings.
+
+PROCESS:
+1. Receive PNR + current name + new name from Supervisor
+2. Verify booking exists and is active (via Booking-Retrieval-Agent data)
+3. Verify identity: check DOB, original email, passport number
+4. Classify change type:
+   - Minor correction (<=3 char diff): NO FEE
+   - Full name change (>3 chars or complete name change): FEE APPLIES
+5. Check constraints:
+   - Departure must be >=24 hours away
+   - Check-in must NOT be open
+   - Booking must be in Confirmed/Ticketed status
+6. Apply fee if applicable
+7. Call update API to change the name
+8. Generate confirmation
+
+FEES:
+- Minor correction: FREE
+- Full name change domestic: EUR50
+- Full name change international: EUR100
+- Full name change intercontinental: EUR150
+
+BLOCKED SCENARIOS:
+- Departure < 24 hours away -> Reject with message
+- Check-in already open -> Reject with message
+- Name transfer to different person -> Reject, advise cancel + rebook
+- Booking cancelled/suspended -> Reject
+
+REQUIRED VERIFICATION (before ANY change):
+Ask for and verify:
+1. Date of birth
+2. Original booking email
+3. Passport/ID number (if in booking)
+```
+
+**Tools:**
+```json
+[
+  {
+    "type": "function",
+    "function": {
+      "name": "update_passenger_name",
+      "description": "Update passenger name on an existing booking",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "cartId": { "type": "string" },
+          "passengerId": { "type": "string" },
+          "firstName": { "type": "string", "description": "New first name" },
+          "lastName": { "type": "string", "description": "New last name" },
+          "title": { "type": "string", "enum": ["MR", "MRS", "MS", "MISS", "DR"] }
+        },
+        "required": ["cartId", "passengerId", "firstName", "lastName"]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "retrieve_order",
+      "description": "Retrieve order details for verification",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "orderRecLocId": { "type": "string" },
+          "lastName": { "type": "string" }
+        },
+        "required": ["orderRecLocId", "lastName"]
+      }
+    }
+  }
+]
 ```
 
 ---
 
-## Setup & Installation
+### Agents #5-15: Quick Configuration Reference
 
-### Prerequisites
+| # | Agent Name | Knowledge Base | Reasoning | Key Tools |
+|---|-----------|---------------|-----------|-----------|
+| 5 | Change-Booking-Agent | kb-change-booking | Medium | `search_flights`, `create_order_change`, `confirm_change` |
+| 6 | RefundAgent | kb-refund-agent | High | `check_refund_eligibility` (GraphQL) |
+| 7 | Refund-workflow | kb-refund-workflow | Medium | `process_refund` (GraphQL mutation) |
+| 8 | Rebooking-Agent | kb-rebooking | Medium | `search_flights`, `create_cart`, `checkout_confirm` |
+| 9 | Disruption-Rebooking-Agent | kb-disruption-rebooking | High | `search_alternatives`, `auto_rebook`, `apply_waiver` |
+| 10 | Ancillary-Sales-Agent | kb-ancillary-sales | Low | `get_service_catalogue`, `add_services`, `get_seatmap`, `add_seats` |
+| 11 | Passenger-SSR-Agent | kb-passenger-ssr | Low | `add_ssr`, `remove_ssr`, `list_ssr` |
+| 12 | Medical-Exception-Agent | kb-medical-exception | Medium | `submit_medical_request`, `check_medical_status` |
+| 13 | Payment-Agent | kb-payment | Low | `process_payment`, `validate_card` |
+| 14 | Case-Management-Agent | kb-case-management | Medium | `create_case`, `update_case`, `close_case` |
+| 15 | Communication-Case-Summary-Agent | kb-communication-summary | Low | `send_email`, `generate_summary` |
 
-- Docker + Docker Compose
-- Node.js 20+
-- Python 3.12+
-- GitHub Personal Access Token (`repo`, `write:repo_hook` scopes)
-- OpenAI API Key (GPT-4o access)
-- Anthropic API Key (Claude Sonnet 4.6 + Opus 4.6 access)
+> **TIP**: For agents #5-15, follow the same pattern as agents #1-4: set the Name, Model, Knowledge base, Instructions (system prompt describing the agent's role and rules), and Tools (function definitions for each API the agent needs to call).
 
-### Quick Start
+---
 
-```bash
-# 1. Clone QUBE
-git clone https://github.com/your-org/qube.git
-cd qube
+## 7. Testing Each Agent
 
-# 2. Configure environment
-cp .env.example .env
-# Add: ANTHROPIC_API_KEY, OPENAI_API_KEY, GITHUB_TOKEN, TARGET_BASE_URL
+### Test Sequence
 
-# 3. Start all services
-docker-compose up -d
+After creating all KBs and agents, test in this order:
 
-# 4. Open the platform
-open http://localhost:3000
+| Order | Test | Input | Expected Result |
+|-------|------|-------|----------------|
+| 1 | Booking-Retrieval-Agent alone | "Retrieve PNR 9DVWPJ, last name Ibrahim" | Returns booking details |
+| 2 | Name-Change-Agent alone | "Change name on PNR 9DVWPJ from Ibrahim to Ibrahim Ali" | Classifies as full change, lists fee |
+| 3 | RefundAgent alone | "Check refund eligibility for 9DVWPJ" | Returns refund breakdown |
+| 4 | Create-Booking-Agent alone | "Book HEL to LHR, Aug 20, 1 adult" | Executes search then cart then travelers flow |
+| 5 | Supervisor routing test | "I need to change my name on booking ABC123" | Routes to Booking-Retrieval then Name-Change |
+| 6 | Supervisor multi-agent | "Book a flight and add extra baggage" | Routes to Create-Booking then Ancillary-Sales |
+| 7 | Supervisor ambiguous input | "Help with my flight" | Asks clarifying question |
+
+### How to Test in Azure AI Foundry
+
+```
+Azure AI Foundry -> Your Project -> Agents -> Select Agent -> Playground (Test tab)
 ```
 
-### First Run
+1. Type your test message in the chat
+2. Observe the agent's response
+3. Check if it calls the correct tools
+4. Verify the output format matches expectations
 
-1. **Settings → GitHub** — connect your organization
-2. **New Project** — select repo + branch
-3. **Config → Models** — review default model assignments (or customize per agent)
-4. Place `qube.config.yaml` in your repo root (template auto-generated)
-5. **New Run → Start**
-6. Watch the live console — model activity ticker shows which AI is active at each stage
-7. View unified report, model usage breakdown, and AI insights when complete
+> **WARNING**: The tools defined above are function definitions only. For them to actually call the Amadeus-Nevio API, you need to implement a function calling handler in your application code (Python/Node.js) that intercepts the function calls, makes the real HTTP requests to the APIM gateway, and returns the responses back to the agent. See the Python SDK orchestration code in the implementation plan.
 
 ---
 
-## Roadmap
+## Summary Checklist
 
-| Phase | Milestone | AI Models | Status |
-|---|---|---|---|
-| **v1.0** | GitHub sync, 4-stage test runners, merged report, gate decision | — | 🔵 In Design |
-| **v1.1** | LangGraph agents: Functional (Sonnet 4.6), Performance (GPT-4o), Security (Sonnet 4.6), Release (Opus 4.6) | Sonnet 4.6, Opus 4.6, GPT-4o | 🔵 In Design |
-| **v1.2** | AI Model Router + per-project model config UI + fallback chain | All | ⬜ Planned |
-| **v1.3** | Bug tracker, GitHub Issue sync, commit status, AI fix diffs (Sonnet 4.6) | Sonnet 4.6 | ⬜ Planned |
-| **v1.4** | Script Analyzer (full 1M ctx codebase ingest via Sonnet 4.6) | Sonnet 4.6 | ⬜ Planned |
-| **v1.5** | AI Chat panel with per-session model switcher | All | ⬜ Planned |
-| **v1.6** | Model usage cost dashboard + per-run cost breakdown + budget alerts | — | ⬜ Planned |
-| **v2.0** | Claude Haiku 4.5 routing for fast lightweight triage on high-volume CI | Haiku 4.5 | ⬜ Planned |
-| **v2.1** | Embeddings-based script similarity search (find duplicate/redundant tests) | `text-embedding-3-large` | ⬜ Planned |
-| **v2.2** | Contract testing stage (Pact) + API fuzzing stage | — | ⬜ Planned |
-| **v2.3** | On-premise Ollama support for air-gapped environments | Llama / Mistral | ⬜ Planned |
-
----
-
-## Governance
-
-| Role | Owner |
-|---|---|
-| Platform Lead | Quality Platform Lead |
-| Policy Approvers | Engineering Manager, Security Lead, SRE Lead |
-| Model Assignment Authority | Quality Platform Lead + Engineering Manager |
-| Review Cadence | Monthly policy · Quarterly threshold + model calibration |
-| Change Process | GitHub PR → impact note → required approvals → changelog entry |
-
----
-
-## Non-Negotiables
-
-- Every run produces a single `merged_summary.json` and `gate_decision.json`
-- Every AI insight is attributed to its source model in `model_usage.json` — no anonymous AI outputs
-- All artifacts stored under `reports/{run_id}/`, indexed and retrievable
-- Any HIGH security finding blocks release unless a documented, expiry-dated exception exists
-- Critical functional path failures always block release
-- API keys for Anthropic and OpenAI are never stored in logs, reports, or committed to files
-- No run proceeds if the local source revision conflicts with origin
-- Model fallback events are always surfaced in the report — no silent model swaps
-
----
-
-*QUBE — The right model for the right task. One platform. One signal. One decision.*
+- [ ] **Phase 1**: Create 19 knowledge document files locally
+- [ ] **Phase 2**: Deploy GPT-4o model in Azure AI Foundry
+- [ ] **Phase 3**: Create 15 knowledge bases (upload documents to each)
+- [ ] **Phase 4**: Create/update 14 specialized agents (link KBs + add tools)
+- [ ] **Phase 5**: Create/update Supervisor-Orchestrator-Agent
+- [ ] **Phase 6**: Test each agent individually in Playground
+- [ ] **Phase 7**: Build Python orchestrator for agent-to-agent communication
+- [ ] **Phase 8**: Test end-to-end multi-agent flows
