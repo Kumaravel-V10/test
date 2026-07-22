@@ -1,0 +1,504 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Nevio Ops — Agent Control Tower</title>
+<style>
+  /* ─────────────────────────────────────────────────────────────
+     Aesthetic: an airline operations console / departure-board.
+     Requests move through a routing "track" of agent gates that flip
+     from HOLDING → BOARDING → DEPARTED as the fleet works. Data and
+     codes are set in monospace (the terminal/board voice); prose in a
+     clean sans. Runway-amber is the one bold accent, used only for the
+     live/active state. Dark by default, light supported.
+     ───────────────────────────────────────────────────────────── */
+  :root {
+    --bg: #0a111e;
+    --bg-grid: rgba(255,255,255,.02);
+    --panel: #101b2d;
+    --panel-2: #0d1626;
+    --hair: rgba(150,175,215,.14);
+    --hair-strong: rgba(150,175,215,.28);
+    --ink: #e8eefb;
+    --ink-dim: #9fb0cc;
+    --muted: #6c7d9c;
+    --amber: #f4b740;   /* runway / active */
+    --teal: #34d6a5;    /* departed / success */
+    --sky: #56a8ff;     /* info / data */
+    --violet: #b78cff;  /* supervisor */
+    --danger: #ff6f6f;  /* escalation / error */
+    --mono: ui-monospace, "Cascadia Code", "SF Mono", Consolas, "Roboto Mono", monospace;
+    --sans: system-ui, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --radius: 12px;
+  }
+  @media (prefers-color-scheme: light) {
+    :root {
+      --bg: #eef1f6; --bg-grid: rgba(20,40,80,.03); --panel: #ffffff; --panel-2: #f5f8fd;
+      --hair: rgba(30,55,100,.14); --hair-strong: rgba(30,55,100,.26);
+      --ink: #10203c; --ink-dim: #46587a; --muted: #71829e;
+      --amber: #c98a00; --teal: #0f9e77; --sky: #2f74d0; --violet: #6d47c9; --danger: #d5453f;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    background:
+      linear-gradient(var(--bg-grid) 1px, transparent 1px) 0 0 / 100% 28px,
+      radial-gradient(1200px 600px at 78% -10%, rgba(86,168,255,.08), transparent 60%),
+      var(--bg);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 15px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+  a { color: var(--sky); }
+
+  /* ── Top bar ─────────────────────────────────────────────── */
+  header {
+    display: flex; align-items: center; gap: 16px;
+    padding: 14px 22px; border-bottom: 1px solid var(--hair);
+    background: linear-gradient(180deg, var(--panel), var(--panel-2));
+    position: sticky; top: 0; z-index: 10;
+  }
+  .brand { display: flex; align-items: baseline; gap: 12px; }
+  .brand .mark {
+    font-family: var(--mono); font-weight: 700; letter-spacing: .5px;
+    font-size: 15px; color: var(--bg); background: var(--amber);
+    padding: 3px 9px; border-radius: 6px;
+  }
+  .brand h1 { font-size: 15px; margin: 0; font-weight: 600; letter-spacing: .2px; }
+  .brand .sub { font-family: var(--mono); font-size: 11px; color: var(--muted); }
+  .spacer { flex: 1; }
+  .pill {
+    font-family: var(--mono); font-size: 11.5px; letter-spacing: .3px;
+    display: inline-flex; align-items: center; gap: 7px;
+    padding: 5px 11px; border: 1px solid var(--hair-strong); border-radius: 999px;
+    color: var(--ink-dim); white-space: nowrap;
+  }
+  .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); }
+  .dot.ok { background: var(--teal); box-shadow: 0 0 10px var(--teal); }
+
+  /* ── Layout ─────────────────────────────────────────────── */
+  main { display: grid; grid-template-columns: 340px 1fr; gap: 0; min-height: calc(100% - 57px); }
+  @media (max-width: 880px) { main { grid-template-columns: 1fr; } }
+
+  /* ── Composer ───────────────────────────────────────────── */
+  .composer { border-right: 1px solid var(--hair); padding: 20px; }
+  @media (max-width: 880px) { .composer { border-right: none; border-bottom: 1px solid var(--hair); } }
+  .eyebrow {
+    font-family: var(--mono); font-size: 10.5px; letter-spacing: 1.8px;
+    text-transform: uppercase; color: var(--muted); margin: 0 0 10px;
+  }
+  textarea {
+    width: 100%; min-height: 96px; resize: vertical; padding: 12px 13px;
+    background: var(--panel-2); color: var(--ink); font-family: var(--sans); font-size: 14.5px;
+    border: 1px solid var(--hair-strong); border-radius: 10px; outline: none;
+  }
+  textarea:focus { border-color: var(--sky); box-shadow: 0 0 0 3px rgba(86,168,255,.18); }
+  .row { display: flex; gap: 10px; align-items: center; margin-top: 12px; }
+  button.send {
+    flex: 1; padding: 11px 14px; border: none; border-radius: 10px; cursor: pointer;
+    background: var(--amber); color: #17120a; font-weight: 700; font-size: 14px;
+    font-family: var(--sans); letter-spacing: .2px; transition: filter .15s, transform .05s;
+  }
+  button.send:hover { filter: brightness(1.06); }
+  button.send:active { transform: translateY(1px); }
+  button.send:disabled { opacity: .5; cursor: not-allowed; }
+  button.ghost {
+    padding: 11px 12px; border: 1px solid var(--hair-strong); border-radius: 10px;
+    background: transparent; color: var(--ink-dim); cursor: pointer; font-family: var(--mono);
+    font-size: 12px;
+  }
+  .examples { margin-top: 22px; display: grid; gap: 8px; }
+  .chip {
+    text-align: left; padding: 9px 11px; border: 1px solid var(--hair);
+    border-radius: 9px; background: var(--panel-2); color: var(--ink-dim);
+    cursor: pointer; font-size: 13px; line-height: 1.35;
+  }
+  .chip:hover { border-color: var(--sky); color: var(--ink); }
+  .chip b { color: var(--ink); font-weight: 600; }
+  .session { margin-top: 22px; font-family: var(--mono); font-size: 11px; color: var(--muted); }
+  .session code { color: var(--ink-dim); }
+
+  /* ── Workflow board ─────────────────────────────────────── */
+  .board { padding: 20px 24px 60px; overflow-x: hidden; }
+  .metabar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 6px; min-height: 30px; }
+  .tag {
+    font-family: var(--mono); font-size: 11.5px; letter-spacing: .3px;
+    padding: 4px 10px; border-radius: 7px; border: 1px solid var(--hair-strong); color: var(--ink-dim);
+  }
+  .tag b { color: var(--ink); }
+  .tag.intent { border-color: var(--sky); color: var(--sky); }
+  .tag.escalation { border-color: var(--danger); color: var(--danger); }
+
+  /* Routing track (the signature element) */
+  .track { display: flex; align-items: stretch; flex-wrap: wrap; gap: 0; margin: 18px 0 8px; }
+  .gate {
+    position: relative; display: flex; flex-direction: column; gap: 3px;
+    padding: 11px 15px 11px 14px; min-width: 150px;
+    background: var(--panel); border: 1px solid var(--hair); border-radius: 10px;
+  }
+  .gate + .gate { margin-left: 26px; }
+  .gate + .gate::before {
+    content: "›"; position: absolute; left: -21px; top: 50%; transform: translateY(-50%);
+    color: var(--muted); font-size: 20px; font-family: var(--mono);
+  }
+  .gate .g-state {
+    font-family: var(--mono); font-size: 9.5px; letter-spacing: 1.4px; text-transform: uppercase;
+    color: var(--muted);
+  }
+  .gate .g-name { font-size: 13.5px; font-weight: 600; color: var(--ink-dim); }
+  .gate .g-role { font-family: var(--mono); font-size: 10px; color: var(--muted); }
+  .gate.supervisor { border-color: color-mix(in srgb, var(--violet) 45%, var(--hair)); }
+  .gate.active {
+    border-color: var(--amber);
+    box-shadow: 0 0 0 1px var(--amber), 0 6px 24px -10px var(--amber);
+    animation: pulse 1.4s ease-in-out infinite;
+  }
+  .gate.active .g-state { color: var(--amber); }
+  .gate.active .g-name { color: var(--ink); }
+  .gate.done { border-color: color-mix(in srgb, var(--teal) 40%, var(--hair)); }
+  .gate.done .g-state { color: var(--teal); }
+  .gate.done .g-name { color: var(--ink); }
+  @keyframes pulse { 0%,100% { box-shadow: 0 0 0 1px var(--amber), 0 6px 22px -12px var(--amber); } 50% { box-shadow: 0 0 0 1px var(--amber), 0 6px 30px -6px var(--amber); } }
+  @media (prefers-reduced-motion: reduce) { .gate.active { animation: none; } }
+
+  /* Agent step cards */
+  .steps { margin-top: 20px; display: grid; gap: 14px; }
+  .card {
+    border: 1px solid var(--hair); border-radius: var(--radius); overflow: hidden;
+    background: linear-gradient(180deg, var(--panel), var(--panel-2));
+    animation: rise .25s ease both;
+  }
+  @keyframes rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+  @media (prefers-reduced-motion: reduce) { .card { animation: none; } }
+  .card .head {
+    display: flex; align-items: center; gap: 11px; padding: 12px 15px;
+    border-bottom: 1px solid var(--hair);
+  }
+  .card .num {
+    font-family: var(--mono); font-size: 11px; color: var(--bg); background: var(--ink-dim);
+    width: 22px; height: 22px; border-radius: 6px; display: grid; place-items: center; flex: none;
+  }
+  .card.done .num { background: var(--teal); }
+  .card .who { font-weight: 600; font-size: 14px; }
+  .card .kb { font-family: var(--mono); font-size: 10.5px; color: var(--muted); }
+  .card .status {
+    margin-left: auto; font-family: var(--mono); font-size: 10px; letter-spacing: 1px;
+    text-transform: uppercase; color: var(--amber);
+  }
+  .card.done .status { color: var(--teal); }
+  .card .body { padding: 6px 15px 14px; }
+
+  /* Tool ticker */
+  .tool {
+    display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: center;
+    padding: 9px 0; border-bottom: 1px dashed var(--hair);
+    animation: rise .2s ease both;
+  }
+  .tool:last-child { border-bottom: none; }
+  .tool .tname { font-family: var(--mono); font-size: 12.5px; color: var(--sky); }
+  .tool .targs { font-family: var(--mono); font-size: 11px; color: var(--muted);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .badge {
+    font-family: var(--mono); font-size: 9.5px; letter-spacing: .8px; text-transform: uppercase;
+    padding: 3px 7px; border-radius: 999px; border: 1px solid var(--hair-strong); color: var(--ink-dim);
+    white-space: nowrap;
+  }
+  .badge.live { color: var(--teal); border-color: color-mix(in srgb, var(--teal) 50%, transparent); }
+  .badge.sim { color: var(--amber); border-color: color-mix(in srgb, var(--amber) 50%, transparent); }
+  .badge.err { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 50%, transparent); }
+  .badge.wait { color: var(--muted); }
+  pre.result {
+    grid-column: 1 / -1; margin: 8px 0 2px; padding: 10px 12px; max-height: 220px; overflow: auto;
+    background: var(--bg); border: 1px solid var(--hair); border-radius: 8px;
+    font-family: var(--mono); font-size: 11.5px; color: var(--ink-dim); white-space: pre-wrap; word-break: break-word;
+  }
+  .agent-text { margin: 10px 0 0; color: var(--ink-dim); font-size: 13.5px; }
+  .agent-text code { font-family: var(--mono); font-size: 12px; background: var(--bg); padding: 1px 5px; border-radius: 4px; }
+
+  /* Final answer + escalation */
+  .final {
+    margin-top: 22px; border: 1px solid color-mix(in srgb, var(--teal) 45%, var(--hair));
+    border-radius: var(--radius); background:
+      linear-gradient(180deg, color-mix(in srgb, var(--teal) 8%, var(--panel)), var(--panel-2));
+    padding: 16px 18px;
+  }
+  .final .eyebrow { color: var(--teal); }
+  .escalate {
+    margin-top: 18px; border: 1px solid var(--danger); border-radius: var(--radius);
+    background: color-mix(in srgb, var(--danger) 10%, var(--panel)); padding: 15px 17px; color: var(--ink);
+  }
+  .escalate .eyebrow { color: var(--danger); }
+
+  .placeholder { color: var(--muted); font-size: 14px; margin-top: 40px; text-align: center; }
+  .placeholder .big { font-size: 15px; color: var(--ink-dim); margin-bottom: 4px; }
+
+  /* Raw log */
+  details.raw { margin-top: 28px; border-top: 1px solid var(--hair); padding-top: 14px; }
+  details.raw summary { cursor: pointer; font-family: var(--mono); font-size: 11.5px; color: var(--muted); }
+  details.raw pre {
+    margin-top: 10px; max-height: 240px; overflow: auto; background: var(--bg);
+    border: 1px solid var(--hair); border-radius: 8px; padding: 10px 12px;
+    font-family: var(--mono); font-size: 11px; color: var(--ink-dim);
+  }
+</style>
+</head>
+<body>
+  <header>
+    <div class="brand">
+      <span class="mark">AY</span>
+      <div>
+        <h1>Agent Control Tower</h1>
+        <div class="sub">nevio service center · multi-agent orchestrator</div>
+      </div>
+    </div>
+    <div class="spacer"></div>
+    <span class="pill" id="statusPill"><span class="dot" id="statusDot"></span><span id="statusText">connecting…</span></span>
+  </header>
+
+  <main>
+    <!-- Composer ------------------------------------------------------- -->
+    <section class="composer">
+      <p class="eyebrow">Customer request</p>
+      <textarea id="input" placeholder="e.g. I want to cancel booking 9DVWPJ, last name Ibrahim, and get a refund"></textarea>
+      <div class="row">
+        <button class="send" id="sendBtn">Dispatch to fleet</button>
+        <button class="ghost" id="newSession" title="Start a fresh session">reset</button>
+      </div>
+
+      <p class="eyebrow" style="margin-top:26px">Try one</p>
+      <div class="examples" id="examples"></div>
+
+      <div class="session">session <code id="sid">—</code></div>
+    </section>
+
+    <!-- Workflow board ------------------------------------------------- -->
+    <section class="board">
+      <div class="metabar" id="metabar"></div>
+      <div class="track" id="track"></div>
+      <div class="steps" id="steps"></div>
+      <div id="tail"></div>
+      <div class="placeholder" id="placeholder">
+        <div class="big">The board is clear.</div>
+        Dispatch a request to watch the supervisor route it through the fleet.
+      </div>
+      <details class="raw"><summary>Raw event stream</summary><pre id="rawlog"></pre></details>
+    </section>
+  </main>
+
+<script>
+(() => {
+  "use strict";
+  const $ = (id) => document.getElementById(id);
+  const el = (tag, cls) => { const n = document.createElement(tag); if (cls) n.className = cls; return n; };
+  const esc = (s) => String(s).replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
+  const fmt = (s) => esc(s).replace(/\*\*(.+?)\*\*/g, "<b>$1</b>").replace(/`([^`]+)`/g, "<code>$1</code>")
+                          .replace(/_([^_]+)_/g, "<i>$1</i>").replace(/\n/g, "<br>");
+
+  // Session (entity carry-over across turns)
+  let sid = localStorage.getItem("nevio_sid") || ("s-" + Math.random().toString(36).slice(2, 9));
+  localStorage.setItem("nevio_sid", sid);
+  $("sid").textContent = sid;
+
+  let AGENTS = {}; // id -> {name, kb}
+  const ROLE = {
+    supervisor: "routes", "booking-retrieval": "reads", "create-booking": "books",
+    "name-change": "amends", "change-booking": "reprices", refund: "assesses",
+    "refund-workflow": "executes", rebooking: "rebooks", "disruption-rebooking": "IROP",
+    "ancillary-sales": "upsells", "passenger-ssr": "SSR", "medical-exception": "MEDIF",
+    payment: "settles", "case-management": "cases", "communication-summary": "notifies",
+  };
+
+  const examples = [
+    ["Retrieve PNR 9DVWPJ, last name Ibrahim", "Retrieve <b>PNR 9DVWPJ</b>, last name Ibrahim"],
+    ["I want to cancel booking 9DVWPJ, last name Ibrahim, and get a refund", "Cancel <b>9DVWPJ</b> and refund — a 3-agent chain"],
+    ["Change my name on booking ABC123 from Sarah Johnson to Sarah Williams", "<b>Name change</b> — retrieval → name-change"],
+    ["Book me a flight from HEL to LHR on 2026-08-20 and add an extra bag", "<b>Book HEL→LHR</b> + baggage"],
+    ["My flight was cancelled, I need to be rebooked", "<b>Disruption</b> rebooking (EU261)"],
+    ["This is fraud, my card was stolen and used on booking ABC123", "<b>Fraud</b> — triggers escalation"],
+  ];
+  const exWrap = $("examples");
+  examples.forEach(([q, label]) => {
+    const c = el("button", "chip"); c.innerHTML = label;
+    c.onclick = () => { $("input").value = q; dispatch(); };
+    exWrap.appendChild(c);
+  });
+
+  // ── health ---------------------------------------------------------
+  fetch("health").then(r => r.json()).then(h => {
+    $("statusDot").classList.add("ok");
+    $("statusText").textContent = `${h.agents} agents · ${h.backend} · mcp:${h.mcp_mode}`;
+  }).catch(() => { $("statusText").textContent = "api offline"; });
+
+  fetch("agents").then(r => r.json()).then(list => {
+    list.forEach(a => AGENTS[a.id] = a);
+  }).catch(() => {});
+
+  // ── board state ----------------------------------------------------
+  let source = null, gates = {}, curCard = null, stepNo = 0;
+
+  function reset() {
+    $("placeholder").style.display = "none";
+    $("metabar").innerHTML = "";
+    $("track").innerHTML = "";
+    $("steps").innerHTML = "";
+    $("tail").innerHTML = "";
+    $("rawlog").textContent = "";
+    gates = {}; curCard = null; stepNo = 0;
+  }
+
+  function tag(text, cls) { const t = el("span", "tag " + (cls || "")); t.innerHTML = text; $("metabar").appendChild(t); return t; }
+
+  function buildTrack(chain) {
+    $("track").innerHTML = "";
+    const nodes = ["supervisor", ...chain];
+    nodes.forEach(id => {
+      const g = el("div", "gate" + (id === "supervisor" ? " supervisor" : ""));
+      g.innerHTML = `<span class="g-state">holding</span>
+        <span class="g-name">${esc((AGENTS[id] && AGENTS[id].name) || id)}</span>
+        <span class="g-role">${ROLE[id] || ""}</span>`;
+      $("track").appendChild(g);
+      gates[id] = g;
+    });
+    // supervisor completes routing immediately
+    setGate("supervisor", "done", "routed");
+  }
+
+  function setGate(id, state, label) {
+    const g = gates[id]; if (!g) return;
+    g.classList.remove("active", "done");
+    if (state) g.classList.add(state);
+    g.querySelector(".g-state").textContent = label || state;
+  }
+
+  function newCard(agentId, step, total) {
+    const a = AGENTS[agentId] || { name: agentId, kb: "" };
+    const card = el("div", "card"); card.dataset.agent = agentId;
+    card.innerHTML = `<div class="head">
+        <span class="num">${step}</span>
+        <span class="who">${esc(a.name)}</span>
+        <span class="kb">${esc(a.kb || "")}</span>
+        <span class="status">working</span>
+      </div><div class="body"></div>`;
+    $("steps").appendChild(card);
+    curCard = card;
+    return card;
+  }
+
+  function addTool(name, args) {
+    if (!curCard) return null;
+    const row = el("div", "tool");
+    const argstr = Object.keys(args || {}).length ? JSON.stringify(args) : "—";
+    row.innerHTML = `<span class="tname">${esc(name)}()</span>
+      <span class="targs" title='${esc(argstr)}'>${esc(argstr)}</span>
+      <span class="badge wait">calling…</span>`;
+    curCard.querySelector(".body").appendChild(row);
+    return row;
+  }
+
+  function completeTool(row, data) {
+    if (!row) return;
+    const badge = row.querySelector(".badge");
+    if (data.error) { badge.className = "badge err"; badge.textContent = "error"; }
+    else if (data.simulated) { badge.className = "badge sim"; badge.textContent = "simulated"; }
+    else { badge.className = "badge live"; badge.textContent = "live"; }
+    let pretty;
+    try { pretty = JSON.stringify(JSON.parse(data.result), null, 2); }
+    catch { pretty = data.result; }
+    const pre = el("pre", "result"); pre.textContent = pretty;
+    row.appendChild(pre);
+  }
+
+  // ── dispatch + stream ----------------------------------------------
+  function dispatch() {
+    const message = $("input").value.trim();
+    if (!message || (source && source.readyState !== 2)) return;
+    reset();
+    $("sendBtn").disabled = true; $("sendBtn").textContent = "Dispatching…";
+
+    const url = `chat/stream?message=${encodeURIComponent(message)}&session_id=${encodeURIComponent(sid)}`;
+    source = new EventSource(url);
+    let pendingTool = null;
+
+    source.onmessage = (ev) => {
+      let e; try { e = JSON.parse(ev.data); } catch { return; }
+      $("rawlog").textContent += `${String(e.seq).padStart(2,"0")}  ${e.type}\n`;
+      const d = e.data || {};
+      switch (e.type) {
+        case "run.started": break;
+        case "entities.extracted":
+          if (Object.keys(d.entities || {}).length)
+            tag("entities " + Object.entries(d.entities).map(([k,v]) => `${k}=${v}`).join(" "));
+          break;
+        case "intent.classified":
+          tag(`intent <b>${esc(d.intent)}</b>`, "intent");
+          buildTrack(d.chain || []);
+          break;
+        case "escalation.detected":
+          tag(`escalation <b>${esc(d.reason)}</b>`, "escalation");
+          break;
+        case "agent.started":
+          setGate(d.agent_id, "active", "boarding");
+          newCard(d.agent_id, d.step, d.total);
+          break;
+        case "tool.called":
+          pendingTool = addTool(d.tool, d.arguments);
+          break;
+        case "tool.result":
+          completeTool(pendingTool, d); pendingTool = null;
+          break;
+        case "agent.completed":
+          setGate(d.agent_id, "done", "departed");
+          if (curCard) {
+            curCard.classList.add("done");
+            curCard.querySelector(".status").textContent = "done";
+            if (d.content) {
+              const p = el("p", "agent-text"); p.innerHTML = fmt(d.content);
+              curCard.querySelector(".body").appendChild(p);
+            }
+          }
+          break;
+        case "run.completed":
+          renderFinal(d);
+          break;
+        case "error":
+          renderError(d.message);
+          break;
+      }
+    };
+    source.addEventListener("done", () => finish());
+    source.onerror = () => { finish(); };
+  }
+
+  function renderFinal(d) {
+    const box = el("div", d.escalation ? "escalate" : "final");
+    box.innerHTML = `<p class="eyebrow">${d.escalation ? "Escalation" : "Resolution"}</p>
+      <div>${fmt(d.final_answer || "")}</div>`;
+    $("tail").appendChild(box);
+  }
+  function renderError(msg) {
+    const box = el("div", "escalate");
+    box.innerHTML = `<p class="eyebrow">Error</p><div>${esc(msg || "unknown error")}</div>`;
+    $("tail").appendChild(box);
+  }
+  function finish() {
+    if (source) { source.close(); source = null; }
+    $("sendBtn").disabled = false; $("sendBtn").textContent = "Dispatch to fleet";
+  }
+
+  $("sendBtn").onclick = dispatch;
+  $("input").addEventListener("keydown", (e) => {
+    if ((e.metaKey || e.ctrlKey) && e.key === "Enter") dispatch();
+  });
+  $("newSession").onclick = () => {
+    sid = "s-" + Math.random().toString(36).slice(2, 9);
+    localStorage.setItem("nevio_sid", sid); $("sid").textContent = sid;
+    reset(); $("placeholder").style.display = "";
+  };
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,16 @@
+# Multi-agent orchestrator dependencies.
+#
+# The orchestrator runs with ZERO third-party packages in heuristic + mock mode
+# (knowledge retrieval and routing are pure-Python). Install these to enable the
+# LLM backends and the live MCP booking bridge.
+
+# LLM backends (Azure OpenAI and standard OpenAI share this SDK).
+openai>=1.40.0
+
+# Only needed for MCP_MODE=http (calling a running SSE server) and by the MCP
+# server itself in MCP_MODE=inprocess. Already required by ../mcp.
+httpx>=0.27.0
+
+# HTTP API layer (REST + SSE) for web-portal integration (agents/api.py).
+fastapi>=0.110.0
+uvicorn[standard]>=0.30.0
