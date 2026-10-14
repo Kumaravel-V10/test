@@ -1779,3 +1779,15 @@ Azure AI Foundry -> Your Project -> Agents -> Select Agent -> Playground (Test t
 - [ ] **Phase 6**: Test each agent individually in Playground
 - [ ] **Phase 7**: Build Python orchestrator for agent-to-agent communication
 - [ ] **Phase 8**: Test end-to-end multi-agent flows
+
+
+
+
+kind: workflow
+trigger:
+  kind: OnConversationStart
+  id: trigger_wf
+  actions: []
+id: wf-architecture-generate
+name: Architecture-Generate-Workflow
+description: End-to-end multi-agent orchestration for Azure architecture generation and WAF review.
