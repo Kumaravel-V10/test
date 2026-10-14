@@ -1,0 +1,358 @@
+$schema: https://azure.microsoft.com/schemas/ai/foundry/workflow/2026-05-preview/schema.json
+name: arc-architecture-workflow
+display_name: Arc Azure Architecture Synthesis Workflow
+version: 1.0.0
+type: multi_agent_workflow
+description: Autonomous multi-agent cloud architecture synthesis workflow for Azure
+  AI Foundry. Orchestrates 10 specialized LLM agents, 1 deterministic connection optimizer,
+  2 Human-in-the-Loop approval checkpoints, and an automated remediation feedback
+  loop using structured Agent-to-Agent (A2A) message passing.
+inputs:
+  requirements:
+    type: string
+    description: Natural language application, functional, and non-functional requirements.
+    required: true
+  project_name:
+    type: string
+    description: Name of the solution or architecture initiative.
+    default: AzureCloudWorkload
+  environment:
+    type: string
+    description: Target deployment environment.
+    default: production
+    enum:
+    - production
+    - staging
+    - development
+  compliance_frameworks:
+    type: array
+    items:
+      type: string
+    default:
+    - WAF
+    - PCI-DSS
+    - Zero-Trust
+    - SOC2
+  view_mode:
+    type: string
+    default: Technical View
+nodes:
+- id: node_1_component_extraction
+  name: Wave 1 - Component Extractor
+  type: agent
+  agent_name: arc-component-extractor
+  model: gpt-4.1
+  wave: '1'
+  inputs:
+    requirements: ${inputs.requirements}
+  outputs:
+  - apis
+  - nfrs
+  - technical_requirements
+  - tech_stack
+  - data_requirements
+  - integration_points
+  - resource_group_hints
+  a2a_handoff:
+    target: node_2_reference_mapping
+    message_type: handoff
+    contract:
+    - apis
+    - nfrs
+    - technical_requirements
+    - tech_stack
+    - resource_group_hints
+- id: node_2_reference_mapping
+  name: Wave 2 - Azure Architecture Reference Mapper
+  type: agent
+  agent_name: arc-reference-mapper
+  model: gpt-4.1
+  wave: '2'
+  depends_on:
+  - node_1_component_extraction
+  inputs:
+    requirements: ${inputs.requirements}
+    component_extraction: ${node_1_component_extraction.outputs}
+  tools:
+  - file_search:
+      vector_stores:
+      - arc-azure-docs-vs
+      - arc-knowledge-base-vs
+  outputs:
+  - matched_reference_architectures
+  - recommended_azure_services
+  - recommended_architecture_pattern
+  - design_decisions
+  a2a_handoff:
+    target: group_3_parallel_analysis
+    message_type: broadcast
+    contract:
+    - matched_reference_architectures
+    - recommended_azure_services
+    - recommended_architecture_pattern
+- id: group_3_parallel_analysis
+  name: Wave 3 - Parallel Analysis Group
+  type: parallel_group
+  depends_on:
+  - node_2_reference_mapping
+  branches:
+  - id: node_3a_security_analysis
+    name: Wave 3a - Security Analyst
+    type: agent
+    agent_name: arc-security-analyst
+    model: gpt-4.1
+    wave: '3'
+    inputs:
+      requirements: ${inputs.requirements}
+      component_extraction: ${node_1_component_extraction.outputs}
+      reference_mapping: ${node_2_reference_mapping.outputs}
+    tools:
+    - file_search:
+        vector_stores:
+        - arc-azure-docs-vs
+    outputs:
+    - security_services
+    - network_security
+    - identity_management
+    - compliance_score
+    - critical_issues
+  - id: node_3b_performance_analysis
+    name: Wave 3b - Performance Analyst
+    type: agent
+    agent_name: arc-performance-analyst
+    model: gpt-4.1
+    wave: '3'
+    inputs:
+      requirements: ${inputs.requirements}
+      component_extraction: ${node_1_component_extraction.outputs}
+    tools:
+    - file_search:
+        vector_stores:
+        - arc-azure-docs-vs
+    outputs:
+    - performance_services
+    - scaling_strategy
+    - caching_strategy
+    - sla_targets
+    - performance_score
+  - id: node_3c_compliance_analysis
+    name: Wave 3c - Regulatory Compliance Agent
+    type: agent
+    agent_name: arc-compliance-agent
+    model: gpt-4.1
+    wave: '3'
+    inputs:
+      requirements: ${inputs.requirements}
+      frameworks: ${inputs.compliance_frameworks}
+      component_extraction: ${node_1_component_extraction.outputs}
+    tools:
+    - file_search:
+        vector_stores:
+        - arc-azure-docs-vs
+    outputs:
+    - frameworks_checked
+    - compliance_score
+    - violations
+    - remediation_actions
+    - data_sovereignty_requirements
+- id: node_4_hitl_checkpoint_1
+  name: Checkpoint 1 - Requirements & NFR Review
+  type: human_in_the_loop
+  depends_on:
+  - group_3_parallel_analysis
+  config:
+    prompt: Review extracted components, reference architectures, security baseline,
+      and compliance status.
+    allow_override: true
+    timeout_seconds: 7200
+- id: node_5_architecture_design
+  name: Wave 4 - Architecture Designer
+  type: agent
+  agent_name: arc-architecture-designer
+  model: gpt-4.1
+  wave: '4'
+  depends_on:
+  - node_4_hitl_checkpoint_1
+  inputs:
+    requirements: ${inputs.requirements}
+    component_extraction: ${node_1_component_extraction.outputs}
+    reference_mapping: ${node_2_reference_mapping.outputs}
+    security_analysis: ${group_3_parallel_analysis.node_3a_security_analysis.outputs}
+    performance_analysis: ${group_3_parallel_analysis.node_3b_performance_analysis.outputs}
+    compliance_analysis: ${group_3_parallel_analysis.node_3c_compliance_analysis.outputs}
+    remediation_context: ${node_9_remediation_router.outputs.remediation_instructions}
+  tools:
+  - file_search:
+      vector_stores:
+      - arc-azure-docs-vs
+      - arc-knowledge-base-vs
+  - code_interpreter
+  outputs:
+  - services
+  - connections
+  - containers
+  - architecture_pattern
+  - waf_alignment
+  a2a_handoff:
+    target: node_6_connection_optimization
+    message_type: handoff
+    contract:
+    - services
+    - connections
+    - containers
+- id: node_6_connection_optimization
+  name: Wave 5 - Connection Optimization Engine
+  type: tool_node
+  tool_name: connection_expert_engine
+  wave: '5'
+  depends_on:
+  - node_5_architecture_design
+  inputs:
+    services: ${node_5_architecture_design.outputs.services}
+    connections: ${node_5_architecture_design.outputs.connections}
+    containers: ${node_5_architecture_design.outputs.containers}
+  outputs:
+  - optimized_connections
+  - connection_stats
+  - isolated_nodes_fixed
+- id: node_7_hitl_checkpoint_2
+  name: Checkpoint 2 - Architecture Topology Review
+  type: human_in_the_loop
+  depends_on:
+  - node_6_connection_optimization
+  config:
+    prompt: Review proposed Azure services, containers (RG/VNet/Subnet), and network
+      connections.
+    allow_override: true
+    timeout_seconds: 7200
+- id: group_8_parallel_evaluation
+  name: Wave 6 - Validation & FinOps Group
+  type: parallel_group
+  depends_on:
+  - node_7_hitl_checkpoint_2
+  branches:
+  - id: node_8a_requirements_validation
+    name: Wave 6a - Requirements Validation Agent
+    type: agent
+    agent_name: arc-validation-agent
+    model: gpt-4.1
+    wave: '6'
+    inputs:
+      requirements: ${inputs.requirements}
+      architecture: ${node_5_architecture_design.outputs}
+      optimized_connections: ${node_6_connection_optimization.outputs.optimized_connections}
+    tools:
+    - file_search:
+        vector_stores:
+        - arc-azure-docs-vs
+    - code_interpreter
+    outputs:
+    - overall_status
+    - overall_validation_score
+    - pillar_scores
+    - critical_issues
+    - passed_checks
+    - remediation_actions
+  - id: node_8b_cost_estimation
+    name: Wave 6b - FinOps Cost Estimation Agent
+    type: agent
+    agent_name: arc-cost-estimation-agent
+    model: gpt-4.1
+    wave: '6'
+    inputs:
+      requirements: ${inputs.requirements}
+      services: ${node_5_architecture_design.outputs.services}
+    outputs:
+    - services_costed
+    - total_monthly_usd
+    - annual_estimate_usd
+    - cost_reduction_tips
+- id: node_9_remediation_router
+  name: Remediation Feedback Router
+  type: conditional_router
+  depends_on:
+  - group_8_parallel_evaluation
+  condition: ${group_8_parallel_evaluation.node_8a_requirements_validation.outputs.overall_validation_score}
+    < 70
+  routing:
+    on_true:
+      target: node_5_architecture_design
+      max_cycles: 2
+      action: emit_a2a_remediation
+      payload:
+        remediation_instructions: ${group_8_parallel_evaluation.node_8a_requirements_validation.outputs.remediation_actions}
+    on_false:
+      target: node_10_architecture_review
+- id: node_10_architecture_review
+  name: Wave 7 - Azure Architecture Reviewer
+  type: agent
+  agent_name: arc-review-agent
+  model: gpt-5
+  wave: '7'
+  depends_on:
+  - node_9_remediation_router
+  inputs:
+    requirements: ${inputs.requirements}
+    architecture: ${node_5_architecture_design.outputs}
+    validation: ${group_8_parallel_evaluation.node_8a_requirements_validation.outputs}
+    cost: ${group_8_parallel_evaluation.node_8b_cost_estimation.outputs}
+    compliance: ${group_3_parallel_analysis.node_3c_compliance_analysis.outputs}
+  tools:
+  - file_search:
+      vector_stores:
+      - arc-azure-docs-vs
+  - code_interpreter
+  outputs:
+  - review_status
+  - overall_score
+  - waf_pillar_scores
+  - strengths
+  - concerns
+  - critical_recommendations
+  - production_readiness_checklist
+- id: node_11_diagram_synthesis
+  name: Wave 8 - Diagram Synthesis Agent
+  type: agent
+  agent_name: arc-diagram-synthesis-agent
+  model: gpt-4.1
+  wave: '8'
+  depends_on:
+  - node_10_architecture_review
+  inputs:
+    services: ${node_5_architecture_design.outputs.services}
+    connections: ${node_6_connection_optimization.outputs.optimized_connections}
+    containers: ${node_5_architecture_design.outputs.containers}
+    architecture_pattern: ${node_5_architecture_design.outputs.architecture_pattern}
+  tools:
+  - code_interpreter
+  outputs:
+  - drawio_xml
+  - service_count
+  - connection_count
+outputs:
+  architecture:
+    value: ${node_5_architecture_design.outputs}
+    description: Complete Azure cloud architecture services, connections, and container
+      topology.
+  drawio_xml:
+    value: ${node_11_diagram_synthesis.outputs.drawio_xml}
+    description: Production-ready Draw.io XML with official Microsoft Azure service
+      icons.
+  validation_report:
+    value: ${group_8_parallel_evaluation.node_8a_requirements_validation.outputs}
+    description: Requirements coverage and pillar-by-pillar validation report.
+  cost_estimate:
+    value: ${group_8_parallel_evaluation.node_8b_cost_estimation.outputs}
+    description: FinOps estimated monthly and annual costs with savings opportunities.
+  compliance_report:
+    value: ${group_3_parallel_analysis.node_3c_compliance_analysis.outputs}
+    description: Regulatory frameworks analysis, compliance score, and remediation
+      steps.
+  review_verdict:
+    value: ${node_10_architecture_review.outputs}
+    description: Comprehensive Well-Architected Framework review verdict from gpt-5
+      reasoning model.
+  a2a_message_bus_log:
+    value: ${workflow.context.a2a_messages}
+    description: Full audit trail of Agent-to-Agent (A2A) communications, handoffs,
+      and feedback messages.
