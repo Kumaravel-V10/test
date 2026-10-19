@@ -1782,12 +1782,256 @@ Azure AI Foundry -> Your Project -> Agents -> Select Agent -> Playground (Test t
 
 
 
-
 kind: workflow
 trigger:
   kind: OnConversationStart
   id: trigger_wf
-  actions: []
+actions:
+  # ── Step 0: State & Context Initialization ──────────────────────────────
+  - kind: SetVariable
+    id: init_workflow_state
+    displayName: Initialize Architecture Session State
+    variable: Local.ArchitectureRequirements
+    value: =Coalesce(inputs.requirements, System.LastMessageText)
+
+  - kind: SendActivity
+    id: send_workflow_started
+    displayName: Announce Workflow Initiation
+    activity:
+      text:
+        - "Initiating Architecture-Generate-Workflow: Autonomous multi-agent pipeline with A2A orchestration."
+
+  # ── Wave 1: Component & NFR Extraction ──────────────────────────────────
+  - kind: InvokeAzureAgent
+    id: action_wave1_component_extractor
+    displayName: Wave 1 - Autonomous Component & NFR Extraction
+    agent:
+      name: arc-component-extractor
+      model: gpt-4.1
+      tools:
+        - file_search:
+            vector_stores:
+              - arc-azure-docs-vs
+    conversationId: =System.ConversationId
+    input:
+      messages: =Local.ArchitectureRequirements
+      payload:
+        requirements: =Local.ArchitectureRequirements
+        project_name: =inputs.project_name
+        environment: =inputs.environment
+    output:
+      autoSend: false
+      responseObject: Local.ComponentExtractionResult
+    a2a_handoff:
+      from_agent: arc-component-extractor
+      to_agent: arc-reference-mapper
+      wave_from: "1"
+      wave_to: "2"
+      message_type: handoff
+      contract:
+        - apis
+        - nfrs
+        - technical_requirements
+        - tech_stack
+        - data_requirements
+
+  # ── Wave 2: Azure Architecture Center Reference Mapping ─────────────────
+  - kind: InvokeAzureAgent
+    id: action_wave2_reference_mapper
+    displayName: Wave 2 - Azure Architecture Center Reference Mapping
+    agent:
+      name: arc-reference-mapper
+      model: gpt-4.1
+      tools:
+        - file_search:
+            vector_stores:
+              - arc-azure-docs-vs
+              - arc-knowledge-base-vs
+    conversationId: =System.ConversationId
+    input:
+      payload:
+        apis: =Local.ComponentExtractionResult.apis
+        nfrs: =Local.ComponentExtractionResult.nfrs
+    output:
+      autoSend: false
+      responseObject: Local.ReferenceMappingResult
+
+  # ── Wave 3: Parallel Domain Specialists ─────────────────────────────────
+  - kind: Parallel
+    id: action_wave3_parallel_specialists
+    displayName: Wave 3 - Parallel Domain Specialists (Security, Performance, Compliance)
+    branches:
+      - id: branch_security_analysis
+        actions:
+          - kind: InvokeAzureAgent
+            id: action_security_analyst
+            displayName: Wave 3A - Security & Zero-Trust Analyst
+            agent:
+              name: arc-security-analyst
+              model: gpt-4.1
+            output:
+              responseObject: Local.SecurityAnalysisResult
+
+      - id: branch_performance_analysis
+        actions:
+          - kind: InvokeAzureAgent
+            id: action_performance_analyst
+            displayName: Wave 3B - Performance & Scalability Analyst
+            agent:
+              name: arc-performance-analyst
+              model: gpt-4.1
+            output:
+              responseObject: Local.PerformanceAnalysisResult
+
+      - id: branch_compliance_analysis
+        actions:
+          - kind: InvokeAzureAgent
+            id: action_compliance_analyst
+            displayName: Wave 3C - Regulatory & Governance Compliance Agent
+            agent:
+              name: arc-compliance-agent
+              model: gpt-4.1
+            output:
+              responseObject: Local.ComplianceAnalysisResult
+
+  # ── HITL Checkpoint 1: Domain Requirements Review ───────────────────────
+  - kind: Question
+    id: checkpoint_1_requirements_approval
+    displayName: HITL Checkpoint 1 - Architecture Strategy Approval
+    prompt: "Review extracted components, reference architectures, and security posture. Proceed with topology synthesis?"
+    alwaysPrompt: false
+    variable: Local.RequirementsApprovalStatus
+
+  # ── Wave 4: Architecture Topology Synthesis ─────────────────────────────
+  - kind: InvokeAzureAgent
+    id: action_wave4_architecture_designer
+    displayName: Wave 4 - Core Architecture Topology Designer
+    agent:
+      name: arc-architecture-designer
+      model: gpt-4.1
+      tools:
+        - file_search:
+            vector_stores:
+              - arc-azure-docs-vs
+        - code_interpreter: {}
+    output:
+      responseObject: Local.RawArchitectureTopology
+
+  # ── Wave 5: Connection Optimization Engine ──────────────────────────────
+  - kind: InvokeAzureAgent
+    id: action_wave5_connection_expert
+    displayName: Wave 5 - Connection Optimization Expert
+    agent:
+      name: arc-connection-expert
+      model: gpt-4.1
+    output:
+      responseObject: Local.OptimizedTopology
+
+  # ── HITL Checkpoint 2: Topology Approval Gate ───────────────────────────
+  - kind: Question
+    id: checkpoint_2_topology_approval
+    displayName: HITL Checkpoint 2 - Topology Review & Approval Gate
+    prompt: "Approve proposed Azure topology and service connection layout?"
+    alwaysPrompt: false
+    variable: Local.TopologyApprovalStatus
+
+  # ── Wave 6: Parallel Validation & Cost Estimation ───────────────────────
+  - kind: Parallel
+    id: action_wave6_validation_and_cost
+    displayName: Wave 6 - Parallel Architecture Validation & Cost Analysis
+    branches:
+      - id: branch_requirements_validation
+        actions:
+          - kind: InvokeAzureAgent
+            id: action_validation_agent
+            displayName: Wave 6A - Requirements & Coverage Validation Agent
+            agent:
+              name: arc-validation-agent
+              model: gpt-4.1
+            output:
+              responseObject: Local.ValidationResult
+
+      - id: branch_cost_estimation
+        actions:
+          - kind: InvokeAzureAgent
+            id: action_cost_estimation_agent
+            displayName: Wave 6B - FinOps & Azure Retail Cost Estimator
+            agent:
+              name: arc-cost-estimation-agent
+              model: gpt-4.1
+            output:
+              responseObject: Local.CostEstimationResult
+
+  # ── Remediation Feedback Loop (Score < 70) ───────────────────────────────
+  - kind: ConditionGroup
+    id: condition_validation_remediation
+    displayName: Remediation Router - Quality Gate
+    conditions:
+      - id: cond_score_below_threshold
+        condition: =Local.ValidationResult.overall_score < 70 && Local.RemediationCycleCount < 2
+        actions:
+          - kind: SetVariable
+            id: increment_remediation_cycle
+            variable: Local.RemediationCycleCount
+            value: =Coalesce(Local.RemediationCycleCount, 0) + 1
+
+  # ── Wave 7: Azure Well-Architected Framework Deep Review ────────────────
+  - kind: InvokeAzureAgent
+    id: action_wave7_review_agent
+    displayName: Wave 7 - Well-Architected Reviewer (Deep Reasoning)
+    agent:
+      name: arc-review-agent
+      model: gpt-5
+    output:
+      responseObject: Local.ReviewVerdict
+
+  # ── Wave 8: Draw.io Diagram Synthesis ───────────────────────────────────
+  - kind: InvokeAzureAgent
+    id: action_wave8_diagram_synthesis
+    displayName: Wave 8 - Production Draw.io XML Generator
+    agent:
+      name: arc-diagram-synthesis-agent
+      model: gpt-4.1
+      tools:
+        - code_interpreter: {}
+    output:
+      responseObject: Local.DiagramSynthesisResult
+
+  # ── Workflow Output ────────────────────────────────────────────────────
+  - kind: SendActivity
+    id: action_send_final_architecture_summary
+    displayName: Workflow Output - Final Architecture Delivery
+    activity:
+      text:
+        - "### Azure Architecture Generation Complete"
+        - "WAF Review Overall Score: {Local.ReviewVerdict.overall_score}/100"
+        - "Estimated Monthly Cost: ${Local.CostEstimationResult.total_monthly_usd} USD"
+
 id: wf-architecture-generate
 name: Architecture-Generate-Workflow
 description: End-to-end multi-agent orchestration for Azure architecture generation and WAF review.
+version: 1.0.0
+
+inputs:
+  requirements:
+    type: string
+    description: Natural language application, functional, and non-functional requirements.
+    required: true
+  project_name:
+    type: string
+    default: AzureCloudWorkload
+  environment:
+    type: string
+    default: production
+
+outputs:
+  architecture:
+    value: =Local.OptimizedTopology
+  drawio_xml:
+    value: =Local.DiagramSynthesisResult.drawio_xml
+  validation_report:
+    value: =Local.ValidationResult
+  cost_estimate:
+    value: =Local.CostEstimationResult
+  review_verdict:
+    value: =Local.ReviewVerdict
