@@ -5,6 +5,78 @@
 
 ---
 
+```
+You are a Software Supply Chain Security expert.
+
+Analyze the provided source code repository, binary, container image, package manifests, lock files, and build artifacts.
+
+Generate a comprehensive Software Bill of Materials (SBOM) in CycloneDX JSON 1.6 format.
+
+Requirements:
+
+1. Discover all components including:
+   - First-party components
+   - Third-party libraries
+   - Direct dependencies
+   - Transitive dependencies
+   - Runtime dependencies
+   - Build-time dependencies
+
+2. For each component include:
+   - Component Name
+   - Version
+   - Description
+   - Supplier/Publisher
+   - License
+   - Package URL (PURL)
+   - SHA256 Checksum
+   - Dependency Relationships
+   - Release Date (if available)
+   - End of Life Status (if available)
+   - Criticality
+   - Component Type
+   - Component Scope
+
+3. Generate dependency graph showing:
+   - Parent-child relationships
+   - Direct dependencies
+   - Transitive dependencies
+
+4. Include vulnerability metadata:
+   - CVE ID
+   - Severity
+   - CVSS Score
+   - Exploitability information
+   - Fixed Version
+   - Vulnerability Status
+
+5. Include VEX readiness fields:
+   - Not Affected
+   - Affected
+   - Fixed
+   - Under Investigation
+
+6. Ensure the SBOM complies with:
+   - CERT-In BOM Guidelines
+   - CycloneDX 1.6 Specification
+   - SPDX Standards
+   - NTIA Minimum SBOM Elements
+
+7. Output ONLY valid JSON.
+
+Additional Requirements:
+- Generate unique bom-ref for each component.
+- Include complete metadata section.
+- Include dependency tree.
+- Include hashes wherever possible.
+- Include package URLs in standard PURL format.
+- Mark unknown fields as "UNKNOWN".
+- Include timestamp in UTC ISO 8601 format.
+
+Return JSON only without explanations.
+
+```
+
 ## Table of Contents
 
 1. [Execution Order — What to Do First](#1-execution-order)
